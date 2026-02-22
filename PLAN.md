@@ -25,6 +25,349 @@ earlier ones.
 
 ---
 
+## Stage 0 — Mock Backend and Test Harness
+
+**Goal:** Build a headless mock backend FIRST, before the pyglet backend. This lets
+every subsequent stage be verified automatically with assertions, not by eyeballing
+a window. The mock backend is also your primary development tool — run tests hundreds
+of times without opening a window.
+
+**Why this comes first:** An AI agent (or any automated system) cannot look at a window
+to verify sprites rendered correctly. It can only check state and assert on recorded
+operations. The backend protocol makes this trivial — the mock implements the same
+interface as pyglet but records everything in memory.
+
+**Files to create:**
+```
+easygame/
+    backends/
+        __init__.py
+        base.py           # Backend protocol + event types
+        mock_backend.py   # Records all operations, no rendering
+tests/
+    __init__.py
+    conftest.py           # pytest fixtures (mock_game, etc.)
+```
+
+**What to implement:**
+
+1. `backends/base.py` — Backend protocol and shared types:
+   - Event types: `KeyEvent(type, key)`, `MouseEvent(type, x, y, button)`,
+     `WindowEvent(type)` — use dataclasses
+   - Opaque handle types: `ImageHandle`, `SoundHandle`, `FontHandle` — can just be
+     string IDs in the mock, actual objects in pyglet
+   - Backend protocol (Protocol class) — same as defined in DESIGN.md
+
+2. `backends/mock_backend.py` — MockBackend that implements the full protocol:
+
+   ```python
+   class MockBackend:
+       """Backend that records all operations for testing."""
+
+       def __init__(self, logical_width=1920, logical_height=1080):
+           self.logical_width = logical_width
+           self.logical_height = logical_height
+           self.scale_factor = 1.0  # no physical scaling in tests
+
+           # === Recorded state (what tests assert on) ===
+           self.sprites = {}        # sprite_id -> {image, x, y, opacity, visible, layer}
+           self.texts = []          # list of draw_text calls this frame
+           self.frame_count = 0
+           self.is_running = True
+
+           # === Event injection (how tests simulate input) ===
+           self._pending_events = []
+
+           # === Audio recording ===
+           self.sounds_played = []     # list of sound names played
+           self.music_playing = None   # current music name
+           self.music_volume = 1.0
+
+           # === Asset tracking ===
+           self._next_handle_id = 0
+           self._loaded_images = {}   # path -> handle
+
+       # -- Lifecycle --
+       def create_window(self, width, height, title, fullscreen):
+           pass  # no window
+
+       def begin_frame(self):
+           self.texts.clear()  # reset per-frame draw calls
+
+       def end_frame(self):
+           self.frame_count += 1
+
+       # -- Rendering --
+       def load_image(self, path):
+           if path not in self._loaded_images:
+               self._loaded_images[path] = f"img_{self._next_handle_id}"
+               self._next_handle_id += 1
+           return self._loaded_images[path]
+
+       def create_sprite(self, image_handle, layer_order):
+           sid = f"sprite_{self._next_handle_id}"
+           self._next_handle_id += 1
+           self.sprites[sid] = {
+               "image": image_handle, "x": 0, "y": 0,
+               "opacity": 255, "visible": True, "layer": layer_order,
+           }
+           return sid
+
+       def update_sprite(self, sprite_id, x, y, image=None, opacity=255, visible=True):
+           s = self.sprites[sprite_id]
+           s["x"], s["y"] = x, y
+           s["opacity"] = opacity
+           s["visible"] = visible
+           if image is not None:
+               s["image"] = image
+
+       def remove_sprite(self, sprite_id):
+           del self.sprites[sprite_id]
+
+       def draw_text(self, text, font_handle, x, y, color, **kwargs):
+           self.texts.append({"text": text, "x": x, "y": y, "color": color})
+
+       def load_font(self, name, size):
+           return f"font_{name}_{size}"
+
+       # -- Audio --
+       def load_sound(self, path):
+           return f"sound_{path}"
+
+       def play_sound(self, handle):
+           self.sounds_played.append(handle)
+
+       # -- Input --
+       def inject_key(self, key, type="key_press"):
+           """Test helper: inject a keyboard event."""
+           self._pending_events.append(KeyEvent(type=type, key=key))
+
+       def inject_click(self, x, y, button="left"):
+           """Test helper: inject a mouse click in logical coordinates."""
+           self._pending_events.append(MouseEvent(type="click", x=x, y=y, button=button))
+
+       def inject_mouse_move(self, x, y):
+           self._pending_events.append(MouseEvent(type="move", x=x, y=y, button=None))
+
+       def poll_events(self):
+           events = self._pending_events.copy()
+           self._pending_events.clear()
+           return events
+
+       def get_display_info(self):
+           return (self.logical_width, self.logical_height)
+
+       def quit(self):
+           self.is_running = False
+   ```
+
+3. `Game` must accept `backend="mock"` (or a backend instance directly):
+   ```python
+   game = Game("Test", backend="mock")       # creates MockBackend
+   game = Game("Test", backend=mock_instance) # uses provided instance
+   ```
+
+4. Add `Game.tick(dt=None)` — run ONE iteration of the game loop (poll events,
+   update, draw) and return. This is essential for testing — instead of `game.run()`
+   which loops forever, tests call `game.tick()` repeatedly:
+   ```python
+   game = Game("Test", backend="mock")
+   game.push(some_scene)
+   game.tick(dt=0.016)    # one frame at 60fps
+   game.tick(dt=0.016)    # another frame
+   # assert on state
+   ```
+
+5. `tests/conftest.py` — pytest fixtures:
+   ```python
+   import pytest
+
+   @pytest.fixture
+   def mock_game():
+       """Game with mock backend, ready for testing."""
+       game = Game("Test", backend="mock", resolution=(1920, 1080))
+       return game
+
+   @pytest.fixture
+   def mock_backend(mock_game):
+       """Direct access to the mock backend for assertions."""
+       return mock_game.backend
+   ```
+
+**Validation — write and run `tests/test_stage0.py`:**
+```python
+from easygame import Game, Scene
+
+class CountingScene(Scene):
+    def __init__(self):
+        self.updates = 0
+        self.entered = False
+        self.exited = False
+
+    def on_enter(self):
+        self.entered = True
+
+    def on_exit(self):
+        self.exited = True
+
+    def update(self, dt):
+        self.updates += 1
+
+def test_scene_lifecycle():
+    game = Game("Test", backend="mock")
+    scene = CountingScene()
+    game.push(scene)
+    assert scene.entered
+    assert scene.updates == 0
+
+    game.tick(dt=0.016)
+    assert scene.updates == 1
+
+    game.tick(dt=0.016)
+    assert scene.updates == 2
+
+def test_scene_push_pop():
+    game = Game("Test", backend="mock")
+    scene_a = CountingScene()
+    scene_b = CountingScene()
+
+    game.push(scene_a)
+    game.push(scene_b)
+    assert scene_b.entered
+    # scene_a should have gotten on_exit (or on_pause equivalent)
+
+    game.pop()
+    assert scene_b.exited
+    # scene_a should get on_reveal
+
+def test_input_dispatch():
+    received = []
+
+    class InputScene(Scene):
+        def handle_input(self, event):
+            received.append(event)
+            return True
+
+    game = Game("Test", backend="mock")
+    game.push(InputScene())
+    game.backend.inject_key("space")
+    game.tick(dt=0.016)
+    assert len(received) == 1
+    assert received[0].key == "space"
+
+def test_quit():
+    game = Game("Test", backend="mock")
+    game.push(CountingScene())
+    game.quit()
+    # game.run() would exit; with tick(), just check the flag
+    assert not game.running
+```
+
+Run with: `python -m pytest tests/ -v`
+
+**Done when:** `pytest tests/` passes. The mock backend records operations. `game.tick()`
+runs exactly one frame. Events can be injected and verified. No window opens, no GPU
+needed, runs in CI, runs in a headless SSH session.
+
+**This is the foundation of all subsequent testing.** Every stage from here on writes
+pytest tests using the mock backend AND optionally a visual test script using pyglet.
+
+---
+
+### How to test each subsequent stage
+
+After Stage 0, every stage has TWO kinds of tests:
+
+**1. Automated tests (pytest, mock backend) — the primary verification:**
+```python
+# Stage 2: sprite assertions
+def test_sprite_position(mock_game):
+    mock_game.push(scene_with_sprites)
+    mock_game.tick(dt=0.016)
+    backend = mock_game.backend
+    # Find the knight sprite and check position
+    knight_sprites = [s for s in backend.sprites.values() if "knight" in s["image"]]
+    assert len(knight_sprites) == 1
+    assert knight_sprites[0]["x"] == 400
+    assert knight_sprites[0]["y"] == 300
+
+# Stage 3: animation callback fires after correct time
+def test_animation_completes(mock_game):
+    completed = []
+    scene = AnimTestScene(on_complete=lambda: completed.append(True))
+    mock_game.push(scene)
+    # Animation has 4 frames at 0.1s each = 0.4s total
+    for _ in range(30):  # 30 frames at 0.016s = 0.48s
+        mock_game.tick(dt=0.016)
+    assert len(completed) == 1
+
+# Stage 4: tween reaches target
+def test_tween_reaches_target(mock_game):
+    scene = TweenTestScene()  # tweens sprite x from 100 to 700 over 2s
+    mock_game.push(scene)
+    for _ in range(150):  # 150 * 0.016 = 2.4s (past the 2s tween)
+        mock_game.tick(dt=0.016)
+    assert abs(scene.sprite.x - 700) < 1  # should be at target
+
+# Stage 6: camera clamps to world bounds
+def test_camera_clamp(mock_game):
+    scene = CameraTestScene()
+    mock_game.push(scene)
+    scene.camera.center_on(-500, -500)  # beyond world bounds
+    assert scene.camera.x >= 0
+    assert scene.camera.y >= 0
+
+# Stage 7: audio crossfade
+def test_crossfade(mock_game):
+    mock_game.push(AudioScene())
+    mock_game.tick(dt=0.016)
+    assert mock_game.backend.music_playing == "exploration"
+    mock_game.audio.crossfade_music("battle", duration=1.0)
+    for _ in range(100):  # 1.6 seconds
+        mock_game.tick(dt=0.016)
+    assert mock_game.backend.music_playing == "battle"
+
+# Stage 8: button click fires callback
+def test_button_click(mock_game):
+    clicked = []
+    scene = MenuScene(on_button_click=lambda: clicked.append(True))
+    mock_game.push(scene)
+    mock_game.tick(dt=0.016)  # let layout compute
+    # Button is centered at ~(960, 540) in logical coords
+    mock_game.backend.inject_click(960, 540)
+    mock_game.tick(dt=0.016)
+    assert len(clicked) == 1
+
+# Stage 10: action sequence completes in order
+def test_action_sequence(mock_game):
+    log = []
+    scene = ActionScene(log=log)  # Sequence(Do("a"), Delay(0.5), Do("b"))
+    mock_game.push(scene)
+    for _ in range(10):
+        mock_game.tick(dt=0.016)
+    assert log == ["a"]  # only first action fired, delay not elapsed
+    for _ in range(30):
+        mock_game.tick(dt=0.016)
+    assert log == ["a", "b"]  # delay elapsed, second action fired
+```
+
+**2. Visual test scripts (optional, for human review):**
+The `tests/test_stageN.py` validation scripts from the plan above — these open a
+window using the real pyglet backend. Run them manually to spot-check visuals.
+They are NOT the primary test mechanism.
+
+**What the mock backend cannot test:**
+- Text actually looks sharp (not blurry)
+- Colors are correct
+- Sprite transparency renders properly
+- Audio sounds right
+
+These require a human to run the visual test once and confirm. Everything else — state
+correctness, lifecycle ordering, timing, callbacks, layout math, coordinate conversion —
+is testable headlessly.
+
+---
+
 ## Stage 1 — Window, Game Loop, Scenes
 
 **Goal:** A running window with a game loop where you can push/pop scenes that draw
@@ -941,7 +1284,8 @@ dismiss, scene replacement. This is the final integration test.
 
 | Stage | What | Depends on | Key deliverable |
 |---|---|---|---|
-| 1 | Window, loop, scenes | — | Running window, scene push/pop |
+| 0 | Mock backend, test harness | — | Headless testing, `game.tick()`, pytest |
+| 1 | Window, loop, scenes | 0 | Running window, scene push/pop |
 | 2 | Assets, sprites | 1 | Sprites on screen with layers |
 | 3 | Animation | 2 | Frame animation with callbacks |
 | 4 | Timers, tweens | 1 | Smooth movement, delayed callbacks |
@@ -959,5 +1303,10 @@ dismiss, scene replacement. This is the final integration test.
 other and of 8 (UI). Stage 10 (actions) is independent of 8-9 (UI). Stage 11
 (particles, color swap) is independent of everything after stage 4.
 
-**The critical path is:** 1 → 2 → 3+4+5 (parallel) → 8 → 9 → 13.
+**The critical path is:** 0 → 1 → 2 → 3+4+5 (parallel) → 8 → 9 → 13.
 Everything else can be woven in around this path.
+
+**Testing strategy:** Every stage writes pytest tests using the mock backend as the
+primary verification mechanism. Visual test scripts (pyglet) are optional human
+spot-checks. An AI agent can verify all stages by running `pytest tests/ -v` after
+each stage and confirming all tests pass. See Stage 0 for full details.
