@@ -1,63 +1,63 @@
-"""Chapter 4 — Enemy Waves
-===========================
+"""Tower Defense -- a complete example game built with EasyGame.
 
-Building on Chapter 3, this chapter adds **enemies and wave spawning**:
+This file demonstrates a fully playable tower defense game using 12+
+distinct EasyGame subsystems:
 
-*   **Enemy definitions** — two types: a slow/tanky Basic soldier and a
-    quick/fragile Fast scout, each with HP, speed, and gold reward.
-*   **Wave definitions** — three escalating waves that specify enemy type,
-    count, spawn interval, and delay before the wave starts.
-*   **Path-following** — enemies spawn at the first waypoint of ENEMY_PATH
-    and follow it using ``sprite.move_to()`` with chained arrival callbacks,
-    advancing one waypoint at a time.
-*   **Enemy FSM** — a simple state machine with ``walking``, ``dying``,
-    and ``dead`` states.  ``dying`` triggers a ``FadeOut`` + ``Remove``
-    action sequence.
-*   **Wave spawning** — ``self.after()`` timers schedule enemy spawns.
-    Scene-owned timers are auto-cancelled on scene exit.
-*   **Player lives** — starting at 20.  Enemies that reach the path end
-    deduct 1 life and are removed.  Lives are shown in the HUD.
-*   **Gold rewards** — enemies killed (reaching 0 HP) award gold.  For now,
-    only the "reach path end" path triggers removal (combat comes in ch5).
-*   **Auto-start** — wave 1 starts a couple seconds after entering the
-    game scene.  The next wave starts a few seconds after all enemies from
-    the current wave are gone.
+    1.  **Scene stack**      -- TitleScene, GameScene, ChoiceScreen, MessageScreen
+    2.  **Sprite**           -- tiles, towers, enemies, projectiles, range indicator
+    3.  **Camera**           -- scrollable world view with key-scroll
+    4.  **Actions**          -- Sequence, FadeOut, Do, Remove for death animations
+    5.  **Scene timers**     -- self.after() / self.every() with auto-cancel
+    6.  **UI widgets**       -- Panel, Label, Button with Layout & Anchor
+    7.  **Audio**            -- play_sound/play_music with optional=True
+    8.  **Particles**        -- ParticleEmitter for projectile impact bursts
+    9.  **StateMachine**     -- enemy FSM (walking -> dying -> dead)
+    10. **Theme**            -- global UI theme for consistent styling
+    11. **draw_world_rect**  -- camera-aware health bar rendering
+    12. **Scene.add_sprite** -- automatic sprite lifecycle management
+    13. **RenderLayer**      -- layered draw order (BACKGROUND, OBJECTS, EFFECTS)
+    14. **InputEvent**       -- unified input handling (keyboard + mouse)
 
-Towers from ch3 are still placeable but don't shoot yet — that's Chapter 5.
+Stage 5 API improvements used:
+    - Scene.after() / Scene.every() -- no manual timer cleanup
+    - Scene.draw_world_rect()       -- camera-aware rectangle drawing
+    - play_sound(optional=True)     -- silent fallback for missing audio
+    - Scene.add_sprite()            -- auto-cleanup on scene exit
 
 Run from the project root::
 
-    python tutorials/tower_defense/ch4_enemies.py
+    python examples/tower_defense/main.py
 
 Controls:
-    Title Screen — Enter or click Play → start game.
-                   Escape or click Quit → exit.
-    Game Screen  — Click a Buy button → enter placement mode.
-                   Left-click on a tower slot → place the tower.
-                   Right-click or Escape → cancel placement / return to menu.
-                   Arrow keys → scroll the camera.
+    Title Screen  -- Enter or click Play to start; Escape or click Quit to exit
+    Game Screen   -- Click Buy to enter placement mode
+                     Left-click a tower slot to place the tower
+                     Right-click or Escape to cancel placement
+                     Arrow keys to scroll the camera
+                     Space to toggle 2x speed
 """
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 from typing import Any
 
 # ---------------------------------------------------------------------------
-# Path setup — same pattern as Chapters 1–3.
+# Path setup
 # ---------------------------------------------------------------------------
 _project_root = Path(__file__).resolve().parents[2]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 # ---------------------------------------------------------------------------
-# Auto-generate assets if the assets/ folder is missing.
+# Auto-generate assets if missing
 # ---------------------------------------------------------------------------
 _asset_dir = Path(__file__).resolve().parent / "assets"
 if not _asset_dir.exists() or not (_asset_dir / "images").exists():
-    print("Assets not found — generating placeholder art...")
-    from tutorials.tower_defense.generate_td_assets import generate
+    print("Assets not found -- generating placeholder art...")
+    from examples.tower_defense.generate_assets import generate
 
     generate(_asset_dir)
     print()
@@ -69,13 +69,16 @@ from easygame import (  # noqa: E402
     Anchor,
     Button,
     Camera,
+    ChoiceScreen,
     Do,
     FadeOut,
     Game,
     InputEvent,
     Label,
     Layout,
+    MessageScreen,
     Panel,
+    ParticleEmitter,
     Remove,
     RenderLayer,
     Scene,
@@ -93,11 +96,7 @@ from easygame import (  # noqa: E402
 # ======================================================================
 
 SCREEN_W, SCREEN_H = 960, 540
-
-# Tile size in pixels.
 TILE_SIZE = 32
-
-# Camera scroll speed in pixels per second.
 CAMERA_SCROLL_SPEED = 200.0
 
 # Colour palette
@@ -107,14 +106,25 @@ SUBTITLE_COLOR = (180, 180, 190, 255)
 HUD_TEXT_COLOR = (220, 220, 230, 255)
 GOLD_COLOR = (255, 210, 50, 255)
 LIVES_COLOR = (255, 100, 100, 255)
+SCORE_COLOR = (120, 220, 255, 255)
 
-# Starting resources.
+# Health bar
+HEALTH_BAR_BG_COLOR = (80, 20, 20, 200)
+HEALTH_BAR_FG_COLOR = (40, 200, 40, 220)
+HEALTH_BAR_WIDTH = 22
+HEALTH_BAR_HEIGHT = 3
+HEALTH_BAR_Y_OFFSET = -14
+
+# Starting resources
 STARTING_GOLD = 200
 STARTING_LIVES = 20
 
+# Projectile speed
+PROJECTILE_SPEED = 300.0
+
 
 # ======================================================================
-# Tower definitions (same as ch3)
+# Tower definitions
 # ======================================================================
 
 TOWER_DEFS: list[dict[str, Any]] = [
@@ -123,18 +133,30 @@ TOWER_DEFS: list[dict[str, Any]] = [
         "image": "tower_basic",
         "cost": 50,
         "range_px": 96,
+        "damage": 15,
+        "fire_rate": 1.5,
+        "splash_radius": 0,
+        "projectile": "projectile_basic",
     },
     {
         "name": "Sniper",
         "image": "tower_sniper",
         "cost": 100,
         "range_px": 160,
+        "damage": 50,
+        "fire_rate": 0.5,
+        "splash_radius": 0,
+        "projectile": "projectile_sniper",
     },
     {
         "name": "Splash",
         "image": "tower_splash",
         "cost": 75,
         "range_px": 80,
+        "damage": 10,
+        "fire_rate": 1.0,
+        "splash_radius": 48,
+        "projectile": "projectile_splash",
     },
 ]
 
@@ -142,13 +164,6 @@ TOWER_DEFS: list[dict[str, Any]] = [
 # ======================================================================
 # Enemy definitions
 # ======================================================================
-
-# Each enemy type is a dict with:
-#   name:        Display name (for future tooltips / wave banner).
-#   image:       Asset name for the sprite.
-#   hp:          Hit points.
-#   speed:       Movement speed in pixels per second.
-#   gold_reward: Gold awarded when the enemy is killed.
 
 ENEMY_DEFS: list[dict[str, Any]] = [
     {
@@ -165,81 +180,74 @@ ENEMY_DEFS: list[dict[str, Any]] = [
         "speed": 80,
         "gold_reward": 15,
     },
+    {
+        "name": "Tank",
+        "image": "enemy_tank",
+        "hp": 200,
+        "speed": 25,
+        "gold_reward": 30,
+    },
 ]
 
 
 # ======================================================================
-# Wave definitions
+# Wave definitions -- 5 escalating waves
 # ======================================================================
-
-# Each wave is a dict with:
-#   enemy_def:      Index into ENEMY_DEFS.
-#   count:          Number of enemies to spawn.
-#   spawn_interval: Seconds between each spawn.
-#   delay:          Seconds to wait before the first spawn of this wave.
 
 WAVE_DEFS: list[dict[str, Any]] = [
-    {
-        "enemy_def": 0,       # Soldier
-        "count": 6,
-        "spawn_interval": 1.2,
-        "delay": 2.0,
-    },
-    {
-        "enemy_def": 1,       # Scout
-        "count": 8,
-        "spawn_interval": 0.8,
-        "delay": 3.0,
-    },
-    {
-        "enemy_def": 0,       # Soldier
-        "count": 10,
-        "spawn_interval": 1.0,
-        "delay": 3.0,
-    },
+    # Wave 1: Introductory -- slow soldiers, generous spacing.
+    {"enemy_def": 0, "count": 6, "spawn_interval": 1.2, "delay": 2.0},
+    # Wave 2: Scout rush -- fast, fragile enemies.
+    {"enemy_def": 1, "count": 10, "spawn_interval": 0.7, "delay": 3.0},
+    # Wave 3: Heavy assault -- tanky enemies that soak damage.
+    {"enemy_def": 2, "count": 4, "spawn_interval": 2.0, "delay": 3.0},
+    # Wave 4: Mixed -- soldiers, faster pace.
+    {"enemy_def": 0, "count": 12, "spawn_interval": 0.8, "delay": 3.0},
+    # Wave 5: Final -- large tank wave.
+    {"enemy_def": 2, "count": 8, "spawn_interval": 1.5, "delay": 3.0},
 ]
 
 
 # ======================================================================
-# Map definition (identical to ch3 — kept inline for standalone running)
+# Map definition -- 40x22 tile grid
 # ======================================================================
 
 GRASS = 0
 PATH = 1
 
+# fmt: off
 MAP_DATA: list[list[int]] = [
-    # fmt: off
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 0
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 1
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 2
-    [0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 3
-    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 4
-    [1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 5
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 6
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 7
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],  # row 8
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],  # row 9
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],  # row 10
-    [0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],  # row 11
-    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 12
-    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 13
-    [0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],  # row 14
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],  # row 15
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],  # row 16
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],  # row 17
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 18
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 19
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 20
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  # row 21
-    # fmt: on
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 ]
+# fmt: on
 
 MAP_ROWS = len(MAP_DATA)
 MAP_COLS = len(MAP_DATA[0])
-MAP_WIDTH_PX = MAP_COLS * TILE_SIZE   # 40 * 32 = 1280
-MAP_HEIGHT_PX = MAP_ROWS * TILE_SIZE  # 22 * 32 = 704
+MAP_WIDTH_PX = MAP_COLS * TILE_SIZE
+MAP_HEIGHT_PX = MAP_ROWS * TILE_SIZE
 
-# Enemy path — tile coordinates (col, row) from spawn to exit.
+# Enemy path -- tile coordinates (col, row) from spawn to exit.
 ENEMY_PATH: list[tuple[int, int]] = [
     (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (6, 5),
     (6, 4), (6, 3),
@@ -263,36 +271,51 @@ ENEMY_PATH: list[tuple[int, int]] = [
 ]
 
 # Pre-compute pixel-centre positions for each waypoint.
-# Enemies walk to the centre of each tile, not the top-left corner.
 ENEMY_PATH_PX: list[tuple[float, float]] = [
     (col * TILE_SIZE + TILE_SIZE / 2, row * TILE_SIZE + TILE_SIZE / 2)
     for col, row in ENEMY_PATH
 ]
 
-# Tower build slots — (col, row) positions where towers can be placed.
+# Tower build slots -- (col, row) positions adjacent to the enemy path.
 TOWER_SLOTS: list[tuple[int, int]] = [
-    (4, 4),
-    (8, 2),
-    (14, 2),
-    (17, 6),
-    (22, 7),
-    (28, 7),
-    (33, 10),
-    (10, 12),
-    (20, 12),
-    (8, 13),
-    (20, 15),
-    (28, 15),
-    (31, 16),
+    (4, 4), (8, 2), (14, 2), (17, 6), (22, 7),
+    (28, 7), (33, 10), (10, 12), (20, 12), (8, 13),
+    (20, 15), (28, 15), (31, 16),
 ]
 
 
 # ======================================================================
-# TitleScene (reused from ch3, updated subtitle)
+# Audio helpers -- safe sound playback using optional=True
+# ======================================================================
+
+def _play_sfx(game: Game, name: str) -> None:
+    """Play a sound effect, silently ignoring missing assets."""
+    game.audio.play_sound(name, optional=True)
+
+
+def _play_music(game: Game, name: str) -> None:
+    """Start background music, silently ignoring missing assets."""
+    game.audio.play_music(name, optional=True)
+
+
+def _stop_music(game: Game) -> None:
+    """Stop background music."""
+    game.audio.stop_music()
+
+
+# ======================================================================
+# TitleScene
 # ======================================================================
 
 class TitleScene(Scene):
-    """Title screen — Play pushes GameScene, Quit exits."""
+    """Title screen with Play / Quit buttons.
+
+    Subsystems demonstrated:
+        - Scene lifecycle (on_enter, on_exit, handle_input)
+        - UI widgets (Panel, Label, Button with Layout & Anchor)
+        - Audio (play_music with optional=True)
+        - Theme (inherited from Game.theme)
+    """
 
     background_color = BG_COLOR
 
@@ -303,12 +326,12 @@ class TitleScene(Scene):
             text_color=TITLE_COLOR,
         )
         subtitle_label = Label(
-            "Chapter 4 — Enemy Waves",
+            "An EasyGame Example",
             font_size=18,
             text_color=SUBTITLE_COLOR,
         )
-        play_button = Button("Play", on_click=self._on_play_clicked)
-        quit_button = Button("Quit", on_click=self._on_quit_clicked)
+        play_button = Button("Play", on_click=self._on_play)
+        quit_button = Button("Quit", on_click=self._on_quit)
 
         menu_panel = Panel(
             layout=Layout.VERTICAL,
@@ -319,88 +342,84 @@ class TitleScene(Scene):
         )
         self.ui.add(menu_panel)
 
-    def _on_play_clicked(self) -> None:
+    def on_exit(self) -> None:
+        _stop_music(self.game)
+
+    def _on_play(self) -> None:
         self.game.push(GameScene())
 
-    def _on_quit_clicked(self) -> None:
+    def _on_quit(self) -> None:
         self.game.quit()
 
     def handle_input(self, event: InputEvent) -> bool:
         if event.action == "confirm":
-            self._on_play_clicked()
+            self._on_play()
             return True
         if event.action == "cancel":
-            self._on_quit_clicked()
+            self._on_quit()
             return True
         return False
 
 
 # ======================================================================
-# GameScene — tile map + camera + HUD + tower placement + enemy waves
+# GameScene -- the complete game
 # ======================================================================
 
 class GameScene(Scene):
-    """Gameplay scene with tower placement and enemy waves.
+    """Gameplay scene: tower placement, enemy waves, combat, win/lose.
 
-    This chapter extends ch3's GameScene with enemy spawning and movement:
+    This scene exercises all major EasyGame subsystems:
 
-    *   Enemies spawn at the first waypoint and follow ``ENEMY_PATH``
-        using ``sprite.move_to()`` with chained arrival callbacks.
-    *   A ``StateMachine`` tracks each enemy's state: walking → dying → dead.
-    *   Waves are scheduled via ``self.after()`` (scene-owned timers).
-    *   Player has lives (shown in HUD); enemies reaching the end cost 1 life.
-
-    Tower placement from ch3 still works — towers just don't shoot yet.
+    - **Sprites** for tiles, towers, enemies, projectiles, range indicator
+    - **Camera** with key-scrolling and world bounds
+    - **Scene timers** (self.after) for wave scheduling with auto-cancel
+    - **StateMachine** for enemy states (walking -> dying -> dead)
+    - **Actions** for death animations (Sequence + FadeOut + Do + Remove)
+    - **ParticleEmitter** for projectile impact bursts
+    - **draw_world_rect** for camera-aware health bars
+    - **add_sprite** for automatic sprite lifecycle management
+    - **UI widgets** for HUD (wave, gold, lives, score) and build menu
+    - **Audio** with optional=True for SFX and music
+    - **RenderLayer** for layered draw order
+    - **InputEvent** for mouse clicks (placement) and keyboard (speed toggle)
     """
 
     show_hud = True
 
-    def on_enter(self) -> None:
-        """Set up map, camera, HUD, build menu, enemies, and wave system."""
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
-        # -----------------------------------------------------------------
+    def on_enter(self) -> None:
+        """Set up the complete game state."""
+
         # Game state
-        # -----------------------------------------------------------------
         self._gold = STARTING_GOLD
         self._lives = STARTING_LIVES
-        self._current_wave = 0       # 0-based index into WAVE_DEFS
-        self._wave_active = False     # True while enemies are being spawned
-        self._wave_spawned = 0        # Enemies spawned so far this wave
+        self._score = 0
+        self._current_wave = 0
+        self._wave_active = False
+        self._wave_spawned = 0
         self._game_over = False
+        self._game_won = False
+        self._speed_multiplier = 1.0
 
-        # -----------------------------------------------------------------
-        # Placement state machine (from ch3).
-        # -----------------------------------------------------------------
+        # Placement state
         self._placing_tower_def: dict[str, Any] | None = None
 
-        # -----------------------------------------------------------------
-        # Placed towers: (col, row) → tower info dict.
-        # -----------------------------------------------------------------
+        # Placed towers: (col, row) -> tower info dict
         self._placed_towers: dict[tuple[int, int], dict[str, Any]] = {}
 
-        # -----------------------------------------------------------------
-        # Slot sprites: (col, row) → Sprite for lookup when placing.
-        # -----------------------------------------------------------------
+        # Slot sprites: (col, row) -> Sprite
         self._slot_sprites: dict[tuple[int, int], Sprite] = {}
 
-        # -----------------------------------------------------------------
-        # Enemy tracking.
-        #
-        # Each enemy is a dict with:
-        #   "sprite":      The Sprite instance.
-        #   "fsm":         StateMachine (walking / dying / dead).
-        #   "hp":          Current HP.
-        #   "max_hp":      Maximum HP.
-        #   "speed":       Movement speed in px/sec.
-        #   "path_index":  Current waypoint index in ENEMY_PATH_PX.
-        #   "gold_reward": Gold awarded on kill.
-        #   "def":         Reference to the ENEMY_DEFS entry.
-        # -----------------------------------------------------------------
+        # Enemy tracking
         self._enemies: list[dict[str, Any]] = []
 
-        # -----------------------------------------------------------------
-        # 1. Camera
-        # -----------------------------------------------------------------
+        # Projectile tracking
+        self._projectiles: list[dict[str, Any]] = []
+
+        # --- Camera (subsystem #3) ---
         self.camera = Camera(
             (SCREEN_W, SCREEN_H),
             world_bounds=(0, 0, MAP_WIDTH_PX, MAP_HEIGHT_PX),
@@ -408,25 +427,17 @@ class GameScene(Scene):
         self.camera.center_on(MAP_WIDTH_PX / 2, MAP_HEIGHT_PX / 2)
         self.camera.enable_key_scroll(speed=CAMERA_SCROLL_SPEED)
 
-        # -----------------------------------------------------------------
-        # 2. Tile map
-        # -----------------------------------------------------------------
+        # --- Tile map (subsystem #2: Sprite, #12: add_sprite) ---
         self._create_tile_map()
 
-        # -----------------------------------------------------------------
-        # 3. Tower slot markers
-        # -----------------------------------------------------------------
+        # --- Tower slot markers ---
         self._create_tower_slots()
 
-        # -----------------------------------------------------------------
-        # 4. HUD and build menu
-        # -----------------------------------------------------------------
+        # --- UI (subsystem #6) ---
         self._build_hud()
         self._build_menu()
 
-        # -----------------------------------------------------------------
-        # 5. Range indicator (hidden until placement mode).
-        # -----------------------------------------------------------------
+        # --- Range indicator (subsystem #2, #13: RenderLayer) ---
         self._range_indicator = self.add_sprite(
             Sprite(
                 "range_indicator",
@@ -438,17 +449,21 @@ class GameScene(Scene):
             )
         )
 
-        # -----------------------------------------------------------------
-        # 6. Schedule wave 1 to start after a short delay.
-        # -----------------------------------------------------------------
+        # --- Background music (subsystem #7: Audio) ---
+        _play_music(self.game, "bgm_game")
+
+        # --- Schedule wave 1 (subsystem #5: Scene timers) ---
         self.after(2.0, self._start_next_wave)
 
+    def on_exit(self) -> None:
+        """Stop music.  Timers and sprites are auto-cleaned by the framework."""
+        _stop_music(self.game)
+
     # ------------------------------------------------------------------
-    # Tile map creation (same as ch3)
+    # Tile map
     # ------------------------------------------------------------------
 
     def _create_tile_map(self) -> None:
-        """Create one Sprite per tile from MAP_DATA."""
         tile_images = {GRASS: "grass", PATH: "path_straight"}
         for row in range(MAP_ROWS):
             for col in range(MAP_COLS):
@@ -462,11 +477,10 @@ class GameScene(Scene):
                 self.add_sprite(sprite)
 
     # ------------------------------------------------------------------
-    # Tower slot markers (same as ch3)
+    # Tower slots
     # ------------------------------------------------------------------
 
     def _create_tower_slots(self) -> None:
-        """Place tower_slot markers at each buildable position."""
         for col, row in TOWER_SLOTS:
             sprite = Sprite(
                 "tower_slot",
@@ -478,11 +492,10 @@ class GameScene(Scene):
             self._slot_sprites[(col, row)] = sprite
 
     # ------------------------------------------------------------------
-    # HUD (top bar) — now includes lives
+    # HUD -- wave, gold, lives, score, hint, speed indicator
     # ------------------------------------------------------------------
 
     def _build_hud(self) -> None:
-        """Build a top-bar HUD with wave, gold, lives, and hint labels."""
         self._wave_label = Label(
             f"Wave: {self._current_wave + 1}/{len(WAVE_DEFS)}",
             font_size=20,
@@ -498,14 +511,24 @@ class GameScene(Scene):
             font_size=20,
             text_color=LIVES_COLOR,
         )
+        self._score_label = Label(
+            f"Score: {self._score}",
+            font_size=20,
+            text_color=SCORE_COLOR,
+        )
         self._hint_label = Label(
             "Wave starting soon...",
             font_size=14,
             text_color=(140, 140, 150, 255),
         )
+        self._speed_label = Label(
+            "",
+            font_size=14,
+            text_color=(200, 200, 100, 255),
+        )
         hud_panel = Panel(
             layout=Layout.HORIZONTAL,
-            spacing=30,
+            spacing=24,
             anchor=Anchor.TOP,
             margin=8,
             style=Style(
@@ -516,17 +539,18 @@ class GameScene(Scene):
                 self._wave_label,
                 self._gold_label,
                 self._lives_label,
+                self._score_label,
                 self._hint_label,
+                self._speed_label,
             ],
         )
         self.ui.add(hud_panel)
 
     # ------------------------------------------------------------------
-    # Build menu (right side panel — same as ch3)
+    # Build menu
     # ------------------------------------------------------------------
 
     def _build_menu(self) -> None:
-        """Build the tower build menu on the right side of the screen."""
         self._buy_buttons: list[Button] = []
 
         menu_title = Label(
@@ -545,10 +569,7 @@ class GameScene(Scene):
             buy_button = Button(
                 "Buy",
                 on_click=lambda td=tdef: self._on_buy_clicked(td),
-                style=Style(
-                    font_size=16,
-                    padding=6,
-                ),
+                style=Style(font_size=16, padding=6),
             )
             self._buy_buttons.append(buy_button)
 
@@ -568,6 +589,11 @@ class GameScene(Scene):
             font_size=12,
             text_color=(120, 120, 130, 255),
         )
+        speed_hint = Label(
+            "Space: toggle 2\u00d7 speed",
+            font_size=12,
+            text_color=(120, 120, 130, 255),
+        )
 
         build_panel = Panel(
             layout=Layout.VERTICAL,
@@ -578,33 +604,29 @@ class GameScene(Scene):
                 background_color=(20, 22, 35, 220),
                 padding=14,
             ),
-            children=[menu_title, *tower_rows, cancel_label],
+            children=[menu_title, *tower_rows, cancel_label, speed_hint],
         )
         self.ui.add(build_panel)
 
         self._refresh_buy_buttons()
 
     # ------------------------------------------------------------------
-    # Buy button callbacks (same as ch3)
+    # Buy button callback
     # ------------------------------------------------------------------
 
     def _on_buy_clicked(self, tower_def: dict[str, Any]) -> None:
-        """Enter placement mode for the selected tower type."""
         self._placing_tower_def = tower_def
-
         if self._range_indicator is not None:
             self._range_indicator.visible = True
-
         cost = tower_def["cost"]
         name = tower_def["name"]
-        self._hint_label.text = f"Placing {name} ({cost}g) — click a slot"
+        self._hint_label.text = f"Placing {name} ({cost}g) -- click a slot"
 
     # ------------------------------------------------------------------
-    # Placement logic (same as ch3)
+    # Tower placement
     # ------------------------------------------------------------------
 
     def _cancel_placement(self) -> None:
-        """Exit placement mode and hide the range indicator."""
         self._placing_tower_def = None
         if self._range_indicator is not None:
             self._range_indicator.visible = False
@@ -612,10 +634,6 @@ class GameScene(Scene):
         self._update_hint_text()
 
     def _try_place_tower(self, world_x: float, world_y: float) -> bool:
-        """Attempt to place the currently selected tower at world coords.
-
-        Returns True if placement succeeded, False otherwise.
-        """
         if self._placing_tower_def is None:
             return False
 
@@ -624,19 +642,17 @@ class GameScene(Scene):
 
         if (col, row) not in self._slot_sprites:
             return False
-
         if (col, row) in self._placed_towers:
             return False
 
         tower_def = self._placing_tower_def
         cost = tower_def["cost"]
-
         if self._gold < cost:
             return False
 
-        # Place the tower.
         self._gold -= cost
 
+        # Replace the slot marker with the tower sprite.
         slot_sprite = self._slot_sprites.pop((col, row))
         slot_sprite.remove()
 
@@ -651,33 +667,26 @@ class GameScene(Scene):
         self._placed_towers[(col, row)] = {
             "def": tower_def,
             "sprite": tower_sprite,
+            "cooldown": 0.0,
         }
 
         self._gold_label.text = f"Gold: {self._gold}"
         self._refresh_buy_buttons()
-
         self._cancel_placement()
 
-        print(
-            f"Placed {tower_def['name']} tower at ({col}, {row}) "
-            f"— gold remaining: {self._gold}"
-        )
         return True
 
     def _refresh_buy_buttons(self) -> None:
-        """Enable/disable Buy buttons based on current gold."""
         for i, tdef in enumerate(TOWER_DEFS):
             can_afford = self._gold >= tdef["cost"]
             self._buy_buttons[i].enabled = can_afford
 
     def _snap_to_nearest_slot(
-        self, world_x: float, world_y: float
+        self, world_x: float, world_y: float,
     ) -> tuple[float, float] | None:
-        """Find the nearest unoccupied tower slot within snap range."""
         snap_range = TILE_SIZE * 1.5
         best_dist = snap_range
         best_pos: tuple[float, float] | None = None
-
         for col, row in self._slot_sprites:
             cx = col * TILE_SIZE + TILE_SIZE / 2
             cy = row * TILE_SIZE + TILE_SIZE / 2
@@ -687,17 +696,17 @@ class GameScene(Scene):
             if dist < best_dist:
                 best_dist = dist
                 best_pos = (cx, cy)
-
         return best_pos
 
     # ------------------------------------------------------------------
-    # HUD hint text helper
+    # HUD hint text
     # ------------------------------------------------------------------
 
     def _update_hint_text(self) -> None:
-        """Update the hint label based on current game state."""
         if self._game_over:
-            self._hint_label.text = "Game Over — press Escape"
+            self._hint_label.text = "Game Over!"
+        elif self._game_won:
+            self._hint_label.text = "Victory!"
         elif self._wave_active:
             self._hint_label.text = "Enemies incoming!"
         elif self._current_wave >= len(WAVE_DEFS):
@@ -710,8 +719,7 @@ class GameScene(Scene):
     # ==================================================================
 
     def _start_next_wave(self) -> None:
-        """Begin spawning enemies for the current wave."""
-        if self._current_wave >= len(WAVE_DEFS):
+        if self._current_wave >= len(WAVE_DEFS) or self._game_over:
             self._update_hint_text()
             return
 
@@ -724,35 +732,31 @@ class GameScene(Scene):
         )
         self._update_hint_text()
 
-        print(f"Wave {self._current_wave + 1} starting — "
-              f"{wave['count']}x {ENEMY_DEFS[wave['enemy_def']]['name']}")
+        _play_sfx(self.game, "sfx_wave")
 
-        # Schedule the first spawn.
+        print(
+            f"Wave {self._current_wave + 1} starting -- "
+            f"{wave['count']}x {ENEMY_DEFS[wave['enemy_def']]['name']}"
+        )
+
         self._schedule_next_spawn()
 
     def _schedule_next_spawn(self) -> None:
-        """Schedule the next enemy spawn for the current wave."""
-        if self._current_wave >= len(WAVE_DEFS):
+        if self._current_wave >= len(WAVE_DEFS) or self._game_over:
             return
-
         wave = WAVE_DEFS[self._current_wave]
         if self._wave_spawned >= wave["count"]:
-            # All enemies for this wave have been spawned.  The wave
-            # is still "active" until all enemies are dead or escaped.
             return
-
         interval = wave["spawn_interval"]
         self.after(interval, self._spawn_enemy)
 
     def _spawn_enemy(self) -> None:
-        """Spawn one enemy for the current wave and schedule the next."""
         if self._current_wave >= len(WAVE_DEFS) or self._game_over:
             return
 
         wave = WAVE_DEFS[self._current_wave]
         edef = ENEMY_DEFS[wave["enemy_def"]]
 
-        # Create the enemy sprite at the first waypoint.
         start_x, start_y = ENEMY_PATH_PX[0]
         sprite = self.add_sprite(
             Sprite(
@@ -763,7 +767,7 @@ class GameScene(Scene):
             )
         )
 
-        # Create the FSM for this enemy.
+        # --- StateMachine (subsystem #9) ---
         fsm = StateMachine(
             states=["walking", "dying", "dead"],
             initial="walking",
@@ -773,7 +777,6 @@ class GameScene(Scene):
             },
         )
 
-        # Build the enemy record.
         enemy: dict[str, Any] = {
             "sprite": sprite,
             "fsm": fsm,
@@ -785,14 +788,9 @@ class GameScene(Scene):
             "def": edef,
         }
         self._enemies.append(enemy)
-
-        # Start walking to the next waypoint.
         self._walk_to_next(enemy)
 
-        # Track how many have been spawned this wave.
         self._wave_spawned += 1
-
-        # Schedule the next spawn (if more enemies remain in this wave).
         self._schedule_next_spawn()
 
     # ------------------------------------------------------------------
@@ -800,28 +798,17 @@ class GameScene(Scene):
     # ------------------------------------------------------------------
 
     def _walk_to_next(self, enemy: dict[str, Any]) -> None:
-        """Start the enemy walking to the next waypoint.
-
-        Uses ``sprite.move_to()`` with an ``on_arrive`` callback that
-        advances to the next waypoint.  We use ``move_to`` (the tween-based
-        method) rather than a composable ``Sequence(MoveTo, Do)`` because
-        the arrival callback fires *after* the action completes — this
-        avoids a re-entrancy issue where ``sprite.do()`` inside a ``Do``
-        action would be immediately overwritten by the parent Sequence
-        finishing.
-        """
+        """Move enemy to next waypoint via sprite.move_to()."""
         if enemy["fsm"].state != "walking":
             return
 
         idx = enemy["path_index"] + 1
         if idx >= len(ENEMY_PATH_PX):
-            # Reached the end of the path — enemy escapes.
             self._enemy_reached_end(enemy)
             return
 
         enemy["path_index"] = idx
         target = ENEMY_PATH_PX[idx]
-
         enemy["sprite"].move_to(
             target,
             speed=enemy["speed"],
@@ -829,7 +816,6 @@ class GameScene(Scene):
         )
 
     def _enemy_reached_end(self, enemy: dict[str, Any]) -> None:
-        """Handle an enemy reaching the exit — lose a life, remove enemy."""
         if enemy["fsm"].state != "walking":
             return
 
@@ -837,41 +823,33 @@ class GameScene(Scene):
         if self._lives < 0:
             self._lives = 0
         self._lives_label.text = f"Lives: {self._lives}"
-        print(f"Enemy escaped! Lives: {self._lives}")
 
-        # Immediately remove the enemy (no death animation for escapees).
+        _play_sfx(self.game, "sfx_lose_life")
+
         self._remove_enemy(enemy)
 
         if self._lives <= 0 and not self._game_over:
-            self._game_over = True
-            self._update_hint_text()
-            print("Game Over!")
+            self._trigger_game_over()
 
-        # Check if wave is complete.
         self._check_wave_complete()
 
     def _kill_enemy(self, enemy: dict[str, Any]) -> None:
-        """Kill an enemy (HP reached 0): award gold, play death sequence.
-
-        In this chapter, enemies only die when their HP drops to 0.
-        Since towers don't shoot yet, this is wired up for future use.
-        """
         if enemy["fsm"].state != "walking":
             return
 
         enemy["fsm"].trigger("die")
 
-        # Award gold.
-        self._gold += enemy["gold_reward"]
+        # Award gold and score.
+        reward = enemy["gold_reward"]
+        self._gold += reward
+        self._score += reward
         self._gold_label.text = f"Gold: {self._gold}"
+        self._score_label.text = f"Score: {self._score}"
         self._refresh_buy_buttons()
 
-        print(
-            f"Enemy killed! +{enemy['gold_reward']}g — "
-            f"gold: {self._gold}"
-        )
+        _play_sfx(self.game, "sfx_death")
 
-        # Death animation: fade out, then remove.
+        # --- Actions (subsystem #4) ---
         enemy["sprite"].do(
             Sequence(
                 FadeOut(0.4),
@@ -881,14 +859,12 @@ class GameScene(Scene):
         )
 
     def _finish_dying(self, enemy: dict[str, Any]) -> None:
-        """Transition FSM to dead and clean up the enemy record."""
         enemy["fsm"].trigger("finish")
         if enemy in self._enemies:
             self._enemies.remove(enemy)
         self._check_wave_complete()
 
     def _remove_enemy(self, enemy: dict[str, Any]) -> None:
-        """Immediately remove an enemy (no animation)."""
         sprite = enemy["sprite"]
         if not sprite.is_removed:
             sprite.remove()
@@ -900,24 +876,19 @@ class GameScene(Scene):
     # ------------------------------------------------------------------
 
     def _check_wave_complete(self) -> None:
-        """Check if all enemies from the current wave are gone.
-
-        If so, advance to the next wave (or declare victory).
-        """
         if not self._wave_active:
             return
 
         wave = WAVE_DEFS[self._current_wave]
-
-        # Wave is complete when all enemies have been spawned AND
-        # no enemies from this wave are still alive.
         if self._wave_spawned < wave["count"]:
-            return  # Still spawning.
+            return
 
-        # Check if any enemies are still alive (walking or dying).
-        alive = [e for e in self._enemies if e["fsm"].state in ("walking", "dying")]
+        alive = [
+            e for e in self._enemies
+            if e["fsm"].state in ("walking", "dying")
+        ]
         if alive:
-            return  # Still enemies on the map.
+            return
 
         # Wave complete!
         self._wave_active = False
@@ -927,40 +898,279 @@ class GameScene(Scene):
             return
 
         if self._current_wave >= len(WAVE_DEFS):
-            self._update_hint_text()
-            print("All waves cleared! You win!")
+            self._check_victory()
             return
 
-        # Schedule the next wave after a brief pause.
         self._hint_label.text = "Next wave incoming..."
         wave_delay = WAVE_DEFS[self._current_wave]["delay"]
         self.after(wave_delay, self._start_next_wave)
 
-    # ------------------------------------------------------------------
-    # Update — check for game-over (no per-frame enemy polling needed
-    # since movement is handled by composable actions).
-    # ------------------------------------------------------------------
+    def _check_victory(self) -> None:
+        """Check if the player has won (all waves done, no enemies alive)."""
+        if self._game_over or self._game_won:
+            return
+
+        alive = [
+            e for e in self._enemies
+            if e["fsm"].state in ("walking", "dying")
+        ]
+        if alive:
+            return
+
+        self._game_won = True
+        self._update_hint_text()
+        _stop_music(self.game)
+
+        print(f"Victory! Final score: {self._score}")
+
+        self.game.push(MessageScreen(
+            f"Victory!  Score: {self._score}",
+            on_dismiss=lambda: self.game.pop(),
+        ))
+
+    # ==================================================================
+    # Game Over / Win
+    # ==================================================================
+
+    def _trigger_game_over(self) -> None:
+        """Handle game-over state: push choice overlay."""
+        self._game_over = True
+        self._update_hint_text()
+
+        _stop_music(self.game)
+
+        print(f"Game Over! Score: {self._score}")
+
+        # Push a ChoiceScreen overlay (subsystem #1: Scene stack).
+        self.game.push(ChoiceScreen(
+            f"Game Over!  Score: {self._score}",
+            ["Retry", "Quit to Title"],
+            on_choice=self._on_game_over_choice,
+        ))
+
+    def _on_game_over_choice(self, index: int) -> None:
+        """Handle the player's choice on the game-over screen.
+
+        This callback fires *before* ChoiceScreen pops itself.  We
+        schedule the follow-up action one tick later so the pop resolves
+        first, leaving GameScene on top where we can replace it.
+
+        NOTE: We intentionally use ``self.game.after()`` instead of
+        ``self.after()`` because these callbacks must survive the
+        scene exit that occurs when ChoiceScreen pops.
+        """
+        if index == 0:
+            # Retry -- replace GameScene with a fresh one, one tick later.
+            self.game.after(0, lambda: self.game.replace(GameScene()))
+        else:
+            # Quit to title -- pop GameScene (one tick later).
+            self.game.after(0, lambda: self.game.pop())
+
+    # ==================================================================
+    # Tower combat
+    # ==================================================================
+
+    def _tower_center(self, col: int, row: int) -> tuple[float, float]:
+        return (
+            col * TILE_SIZE + TILE_SIZE / 2,
+            row * TILE_SIZE + TILE_SIZE / 2,
+        )
+
+    def _distance(
+        self, x1: float, y1: float, x2: float, y2: float,
+    ) -> float:
+        dx = x2 - x1
+        dy = y2 - y1
+        return math.sqrt(dx * dx + dy * dy)
+
+    def _update_towers(self, dt: float) -> None:
+        for (col, row), tower in self._placed_towers.items():
+            tower["cooldown"] -= dt
+            if tower["cooldown"] > 0:
+                continue
+
+            tdef = tower["def"]
+            tx, ty = self._tower_center(col, row)
+            range_px = tdef["range_px"]
+
+            best_enemy: dict[str, Any] | None = None
+            best_dist = float("inf")
+
+            for enemy in self._enemies:
+                if enemy["fsm"].state != "walking":
+                    continue
+                esp = enemy["sprite"]
+                if esp.is_removed:
+                    continue
+                ex, ey = esp._x, esp._y
+                dist = self._distance(tx, ty, ex, ey)
+                if dist <= range_px and dist < best_dist:
+                    best_dist = dist
+                    best_enemy = enemy
+
+            if best_enemy is None:
+                continue
+
+            self._fire_projectile(tower, col, row, best_enemy)
+            tower["cooldown"] = 1.0 / tdef["fire_rate"]
+
+    def _fire_projectile(
+        self,
+        tower: dict[str, Any],
+        col: int,
+        row: int,
+        target_enemy: dict[str, Any],
+    ) -> None:
+        tdef = tower["def"]
+        tx, ty = self._tower_center(col, row)
+
+        esp = target_enemy["sprite"]
+        target_pos = (esp._x, esp._y)
+
+        proj_sprite = self.add_sprite(
+            Sprite(
+                tdef["projectile"],
+                position=(tx, ty),
+                anchor=SpriteAnchor.CENTER,
+                layer=RenderLayer.EFFECTS,
+            )
+        )
+
+        proj: dict[str, Any] = {
+            "sprite": proj_sprite,
+            "target_enemy": target_enemy,
+            "target_pos": target_pos,
+            "damage": tdef["damage"],
+            "splash_radius": tdef["splash_radius"],
+        }
+        self._projectiles.append(proj)
+
+        proj_sprite.move_to(
+            target_pos,
+            speed=PROJECTILE_SPEED,
+            on_arrive=lambda p=proj: self._projectile_arrived(p),
+        )
+
+        _play_sfx(self.game, "sfx_shoot")
+
+    def _projectile_arrived(self, proj: dict[str, Any]) -> None:
+        if proj in self._projectiles:
+            self._projectiles.remove(proj)
+
+        sprite = proj["sprite"]
+        if sprite.is_removed:
+            return
+
+        impact_x, impact_y = proj["target_pos"]
+
+        if proj["splash_radius"] > 0:
+            self._apply_splash_damage(
+                impact_x, impact_y,
+                proj["splash_radius"],
+                proj["damage"],
+            )
+        else:
+            target = proj["target_enemy"]
+            if (target["fsm"].state == "walking"
+                    and not target["sprite"].is_removed):
+                self._deal_damage(target, proj["damage"])
+
+        _play_sfx(self.game, "sfx_hit")
+
+        # --- ParticleEmitter (subsystem #8) ---
+        ParticleEmitter(
+            "explosion",
+            position=(impact_x, impact_y),
+            count=8,
+            speed=(30, 80),
+            lifetime=(0.15, 0.35),
+            fade_out=True,
+        ).burst()
+
+        sprite.remove()
+
+    def _apply_splash_damage(
+        self, x: float, y: float, radius: float, damage: int,
+    ) -> None:
+        for enemy in list(self._enemies):
+            if enemy["fsm"].state != "walking":
+                continue
+            esp = enemy["sprite"]
+            if esp.is_removed:
+                continue
+            dist = self._distance(x, y, esp._x, esp._y)
+            if dist <= radius:
+                self._deal_damage(enemy, damage)
+
+    def _deal_damage(self, enemy: dict[str, Any], damage: int) -> None:
+        if enemy["fsm"].state != "walking":
+            return
+        enemy["hp"] -= damage
+        if enemy["hp"] <= 0:
+            enemy["hp"] = 0
+            self._kill_enemy(enemy)
+
+    def _cleanup_orphan_projectiles(self) -> None:
+        self._projectiles = [
+            p for p in self._projectiles if not p["sprite"].is_removed
+        ]
+
+    # ==================================================================
+    # Update
+    # ==================================================================
 
     def update(self, dt: float) -> None:
-        """Per-frame update.
+        """Per-frame update with optional speed multiplier."""
+        if self._game_over or self._game_won:
+            return
 
-        Enemy movement is driven by ``sprite.move_to()`` with chained
-        callbacks — no manual position polling needed.  This method is
-        reserved for future per-frame logic (tower targeting, health bar
-        updates, etc.).
-        """
-        pass
+        effective_dt = dt * self._speed_multiplier
+        self._update_towers(effective_dt)
+        self._cleanup_orphan_projectiles()
+
+    # ==================================================================
+    # Draw -- health bars using draw_world_rect (subsystem #11)
+    # ==================================================================
+
+    def draw(self) -> None:
+        for enemy in self._enemies:
+            if enemy["fsm"].state != "walking":
+                continue
+
+            hp = enemy["hp"]
+            max_hp = enemy["max_hp"]
+            if hp >= max_hp:
+                continue
+
+            esp = enemy["sprite"]
+            if esp.is_removed:
+                continue
+
+            # World-space health bar position (camera transform is automatic).
+            bar_x = esp._x - HEALTH_BAR_WIDTH / 2
+            bar_y = esp._y + HEALTH_BAR_Y_OFFSET
+
+            self.draw_world_rect(
+                bar_x, bar_y,
+                HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT,
+                HEALTH_BAR_BG_COLOR,
+            )
+
+            hp_ratio = max(0.0, hp / max_hp)
+            fill_width = max(1, int(HEALTH_BAR_WIDTH * hp_ratio))
+
+            self.draw_world_rect(
+                bar_x, bar_y,
+                fill_width, HEALTH_BAR_HEIGHT,
+                HEALTH_BAR_FG_COLOR,
+            )
 
     # ------------------------------------------------------------------
-    # Input handling (extended from ch3)
+    # Input handling (subsystem #14)
     # ------------------------------------------------------------------
 
     def handle_input(self, event: InputEvent) -> bool:
-        """Handle mouse clicks, mouse movement, and keyboard input."""
-
-        # -----------------------------------------------------------------
-        # Escape — cancel placement first, then pop to title if idle.
-        # -----------------------------------------------------------------
+        # Escape -- cancel placement first, then pop to title.
         if event.action == "cancel":
             if self._placing_tower_def is not None:
                 self._cancel_placement()
@@ -968,29 +1178,28 @@ class GameScene(Scene):
             self.game.pop()
             return True
 
-        # -----------------------------------------------------------------
-        # Right-click — cancel placement mode.
-        # -----------------------------------------------------------------
+        # Right-click -- cancel placement.
         if event.type == "click" and event.button == "right":
             if self._placing_tower_def is not None:
                 self._cancel_placement()
                 return True
             return False
 
-        # -----------------------------------------------------------------
-        # Left-click — attempt tower placement.
-        # -----------------------------------------------------------------
+        # Left-click -- tower placement.
         if event.type == "click" and event.button == "left":
-            if self._placing_tower_def is not None and event.world_x is not None and event.world_y is not None:
+            if (self._placing_tower_def is not None
+                    and event.world_x is not None
+                    and event.world_y is not None):
                 self._try_place_tower(event.world_x, event.world_y)
                 return True
             return False
 
-        # -----------------------------------------------------------------
-        # Mouse movement — update range indicator.
-        # -----------------------------------------------------------------
+        # Mouse movement -- range indicator.
         if event.type in ("move", "drag"):
-            if self._placing_tower_def is not None and self._range_indicator is not None and event.world_x is not None and event.world_y is not None:
+            if (self._placing_tower_def is not None
+                    and self._range_indicator is not None
+                    and event.world_x is not None
+                    and event.world_y is not None):
                 wx, wy = event.world_x, event.world_y
                 snap = self._snap_to_nearest_slot(wx, wy)
                 if snap is not None:
@@ -1000,26 +1209,34 @@ class GameScene(Scene):
                 return True
             return False
 
+        # Space -- toggle 2x speed.
+        if event.type == "key_press" and getattr(event, "key", None) == "space":
+            if self._speed_multiplier == 1.0:
+                self._speed_multiplier = 2.0
+                self._speed_label.text = "[2\u00d7 SPEED]"
+            else:
+                self._speed_multiplier = 1.0
+                self._speed_label.text = ""
+            return True
+
         return False
 
 
 # ======================================================================
-# Main — entry point
+# Main -- entry point
 # ======================================================================
 
 def main() -> None:
-    """Create the Game and run with the title screen.
-
-    Same setup pattern as Chapters 1–3.
-    """
+    """Create the Game and run with the title screen."""
     game = Game(
-        "Tower Defense — Chapter 4",
+        "Tower Defense",
         resolution=(SCREEN_W, SCREEN_H),
         fullscreen=False,
         backend="pyglet",
         asset_path=_asset_dir,
     )
 
+    # --- Theme (subsystem #10) ---
     game.theme = Theme(
         font="serif",
         font_size=24,

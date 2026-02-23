@@ -8,7 +8,7 @@ deferred and flushed after those phases complete.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from easygame.game import Game
@@ -102,6 +102,69 @@ class Scene:
                 sprite.remove()
         owned.clear()
 
+    # ------------------------------------------------------------------
+    # Timer ownership
+    # ------------------------------------------------------------------
+
+    def _get_owned_timers(self) -> set[int]:
+        """Return the owned-timer-IDs set, creating it lazily."""
+        try:
+            return self._owned_timers  # type: ignore[has-type]
+        except AttributeError:
+            self._owned_timers: set[int] = set()
+            return self._owned_timers
+
+    def after(self, delay: float, callback: Callable[[], Any]) -> int:
+        """Schedule a one-shot callback after *delay* seconds.
+
+        The timer is automatically cancelled when this scene exits (after
+        the user's :meth:`on_exit` runs).  Returns a timer ID that can be
+        passed to :meth:`cancel_timer` for early manual cancellation.
+
+        Equivalent to ``self.game.after(delay, callback)`` with automatic
+        lifecycle management.
+        """
+        # Wrap the callback so the timer ID is removed from the owned set
+        # when a one-shot fires naturally (not cancelled).
+        owned = self._get_owned_timers()
+
+        def _wrapper() -> None:
+            owned.discard(timer_id)
+            callback()
+
+        timer_id = self.game.after(delay, _wrapper)
+        owned.add(timer_id)
+        return timer_id
+
+    def every(self, interval: float, callback: Callable[[], Any]) -> int:
+        """Schedule a repeating callback every *interval* seconds.
+
+        The timer is automatically cancelled when this scene exits (after
+        the user's :meth:`on_exit` runs).  Returns a timer ID that can be
+        passed to :meth:`cancel_timer` for early manual cancellation.
+
+        Equivalent to ``self.game.every(interval, callback)`` with automatic
+        lifecycle management.
+        """
+        timer_id = self.game.every(interval, callback)
+        self._get_owned_timers().add(timer_id)
+        return timer_id
+
+    def cancel_timer(self, timer_id: int) -> None:
+        """Manually cancel a scene-owned timer.
+
+        Safe to call on already-fired or already-cancelled timer IDs.
+        """
+        self._get_owned_timers().discard(timer_id)
+        self.game.cancel(timer_id)
+
+    def _cleanup_owned_timers(self) -> None:
+        """Cancel all owned timers.  Called by SceneStack after on_exit()."""
+        owned = self._get_owned_timers()
+        for timer_id in list(owned):
+            self.game.cancel(timer_id)
+        owned.clear()
+
     def on_enter(self) -> None:
         """Called when this scene becomes active (top of stack)."""
         pass
@@ -125,6 +188,75 @@ class Scene:
     def handle_input(self, event: InputEvent) -> bool:
         """Handle input event. Return True to consume, False to pass through."""
         return False
+
+    # ------------------------------------------------------------------
+    # Drawing helpers
+    # ------------------------------------------------------------------
+
+    def draw_rect(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        color: tuple[int, int, int, int],
+        *,
+        opacity: float = 1.0,
+    ) -> None:
+        """Draw a filled rectangle in **screen space**.
+
+        Convenience wrapper around the backend's ``draw_rect`` for use
+        inside :meth:`draw`.  Coordinates are in logical screen pixels.
+
+        Parameters:
+            x:       Left edge in screen pixels.
+            y:       Top edge in screen pixels.
+            width:   Width in pixels.
+            height:  Height in pixels.
+            color:   ``(R, G, B, A)`` with values 0–255.
+            opacity: Extra opacity multiplier (0.0–1.0, default 1.0).
+        """
+        self.game._backend.draw_rect(
+            int(x), int(y), int(width), int(height), color, opacity=opacity,
+        )
+
+    def draw_world_rect(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        color: tuple[int, int, int, int],
+        *,
+        opacity: float = 1.0,
+    ) -> None:
+        """Draw a filled rectangle in **world space**.
+
+        The rectangle position ``(x, y)`` is automatically transformed
+        through the scene's :attr:`camera` to screen coordinates.  Use
+        this for health bars, selection highlights, or any overlay that
+        should scroll with the world.
+
+        Requires :attr:`camera` to be set (typically in :meth:`on_enter`).
+        Raises :class:`RuntimeError` if no camera is attached.
+
+        Parameters:
+            x:       Left edge in world pixels.
+            y:       Top edge in world pixels.
+            width:   Width in pixels (not transformed).
+            height:  Height in pixels (not transformed).
+            color:   ``(R, G, B, A)`` with values 0–255.
+            opacity: Extra opacity multiplier (0.0–1.0, default 1.0).
+        """
+        if self.camera is None:
+            raise RuntimeError(
+                "draw_world_rect() requires a camera.  "
+                "Set self.camera in on_enter() before drawing in world space."
+            )
+        sx, sy = self.camera.world_to_screen(x, y)
+        self.game._backend.draw_rect(
+            int(sx), int(sy), int(width), int(height), color, opacity=opacity,
+        )
 
     # ------------------------------------------------------------------
     # Save / Load
@@ -247,6 +379,7 @@ class SceneStack:
             old = self._stack[-1]
             old.on_exit()
             old._cleanup_owned_sprites()
+            old._cleanup_owned_timers()
         scene.game = self._game
         self._stack.append(scene)
         scene.on_enter()
@@ -257,6 +390,7 @@ class SceneStack:
         old = self._stack[-1]
         old.on_exit()
         old._cleanup_owned_sprites()
+        old._cleanup_owned_timers()
         self._stack.pop()
         if self._stack:
             self._stack[-1].on_reveal()
@@ -266,6 +400,7 @@ class SceneStack:
             old = self._stack[-1]
             old.on_exit()
             old._cleanup_owned_sprites()
+            old._cleanup_owned_timers()
             self._stack.pop()
         scene.game = self._game
         self._stack.append(scene)
@@ -275,6 +410,7 @@ class SceneStack:
         for s in reversed(self._stack):
             s.on_exit()
             s._cleanup_owned_sprites()
+            s._cleanup_owned_timers()
         self._stack.clear()
         scene.game = self._game
         self._stack.append(scene)

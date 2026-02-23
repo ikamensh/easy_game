@@ -1,7 +1,7 @@
 # EasyGame Architecture Reference
 
-> Condensed from implementation journals (stages 6–13), updated for stage 3 API
-> improvements. All API signatures verified against source.
+> Condensed from implementation journals (stages 6–13), updated through stage 5 API
+> improvements. All API signatures verified against source. **1144 tests passing.**
 
 ---
 
@@ -100,7 +100,7 @@ class Game:
 ```
 
 **Internal registries:** `_all_sprites`, `_animated_sprites`, `_action_sprites`,
-`_particle_emitters` — sprites/emitters self-register on construction.
+`_particle_emitters` — self-register on construction.
 
 ## Scene
 
@@ -126,16 +126,24 @@ class Scene:
     # Sprite ownership — auto-removed after on_exit()
     def add_sprite(self, sprite: Sprite) -> Sprite    # register; returns sprite for chaining
     def remove_sprite(self, sprite: Sprite) -> None   # deregister + sprite.remove()
+
+    # Timer ownership — auto-cancelled after on_exit()
+    def after(self, delay: float, callback) -> int    # scene-scoped game.after()
+    def every(self, interval: float, callback) -> int # scene-scoped game.every()
+    def cancel_timer(self, timer_id: int) -> None     # deregister + game.cancel()
+
+    # Draw helpers — call in draw(), cleared each frame
+    def draw_rect(self, x, y, w, h, color) -> None          # screen-space
+    def draw_world_rect(self, x, y, w, h, color) -> None    # auto camera transform
 ```
 
-**`background_color`:** Base scene's color is passed to `backend.begin_frame(clear_color)`
-in `Game.tick()`. Per-frame clear — no sprite creation/cleanup. Transparent overlay
-scenes inherit the base scene's background.
+**`background_color`:** Per-frame clear via `begin_frame()`. Transparent overlays inherit base.
 
-**Sprite ownership:** `add_sprite()` registers a sprite; `_cleanup_owned_sprites()` runs
-after `on_exit()` in all SceneStack transitions (push, pop, replace, clear_and_push).
-Sprites individually removed via `sprite.remove()` auto-deregister from the scene.
-Direct `Sprite()` creation without `add_sprite()` still works (unowned, manual cleanup).
+**Ownership (sprites + timers):** Cleanup runs after `on_exit()` in all SceneStack transitions.
+`sprite.remove()` auto-deregisters. `game.after()` only for cross-scene timers.
+
+**Draw helpers:** `draw_world_rect()` auto-applies camera transform; both delegate to backend
+and are per-frame (cleared each `begin_frame()`). Eliminates `game._backend` access.
 
 ---
 
@@ -149,31 +157,15 @@ class Sprite:
                  color_swap: ColorSwap | None = None,
                  team_palette: str | None = None)
 
-    # Position (world coordinates)
-    position: tuple[float, float]   # property, settable
-    x: float                        # property, settable
-    y: float                        # property, settable
-    opacity: int                    # property, settable (0-255)
-    visible: bool                   # property, settable
-    image: str                      # property, settable (swaps texture)
-    layer: RenderLayer              # read-only
-    anchor: SpriteAnchor            # read-only
-
-    # Movement
+    # Properties (all settable): position, x, y, opacity (0-255), visible, image
+    # Read-only: layer (RenderLayer), anchor (SpriteAnchor)
     def move_to(self, target_pos, speed, *, ease=None, on_arrive=None) -> None
-
-    # Animation
     def play(self, anim: AnimationDef, *, on_complete=None) -> None
     def queue(self, anim: AnimationDef, *, on_complete=None) -> None
     def stop_animation(self) -> None
-
-    # Composable actions
     def do(self, action: Action) -> None      # cancels current action
     def stop_actions(self) -> None
-
-    # Lifecycle
-    def remove(self) -> None         # stops actions + animations, deregisters
-    @property is_removed -> bool
+    def remove(self) -> None; @property is_removed -> bool
 ```
 
 ```python
@@ -213,11 +205,8 @@ class Camera:
     def update(self, dt, mouse_x=None, mouse_y=None)  # per-frame (edge + key scroll)
 ```
 
-**Key scroll:** `enable_key_scroll(speed)` tracks held arrow keys via `handle_input()`.
-`Game.tick()` calls `camera.handle_input(event)` after HUD and Scene UI, before
-`scene.handle_input()`. `update()` applies key scroll alongside edge scroll.
-
-Frustum culling uses sprite image dimensions as margin.
+**Key scroll:** dispatched after HUD/UI, before `scene.handle_input()`. Frustum culling
+uses sprite image dimensions as margin.
 
 ## Animation
 
@@ -260,6 +249,9 @@ class Repeat(action, times=None)          # None = infinite; uses deepcopy per i
 - `Sequence` chains instant actions in one frame (no 1-frame-per-step delay)
 - Action phase runs before timers/tweens so `PlayAnim.start()` → animation phase
   processes the first frame in the same tick
+- **Re-entrancy trap:** `sprite.do()` inside a `Sequence`'s `Do()` callback gets
+  silently overwritten by the continuing Sequence. Workaround: use
+  `sprite.move_to(on_arrive=callback)` for movement chains. Documented in LIMITATIONS.md
 
 ---
 
@@ -269,8 +261,8 @@ class Repeat(action, times=None)          # None = infinite; uses deepcopy per i
 class AudioManager:
     def __init__(self, backend, assets: AssetManager)
 
-    def play_sound(self, name: str, *, channel="sfx") -> None
-    def play_music(self, name: str, *, loop=True) -> None
+    def play_sound(self, name: str, *, channel="sfx", optional=False) -> None
+    def play_music(self, name: str, *, loop=True, optional=False) -> None
     def stop_music(self) -> None
     def crossfade_music(self, name: str, duration=1.0, *, loop=True) -> None
     def set_volume(self, channel: str, level: float) -> None   # 0.0–1.0
@@ -281,7 +273,9 @@ class AudioManager:
 
 **Channels:** `master`, `music`, `sfx`, `ui`. Effective = master × channel.
 No `update(dt)` — crossfade driven by tween system. Music NOT cached (pyglet streaming
-sources can't be reused). SFX are fire-and-forget.
+sources can't be reused). SFX are fire-and-forget. **`optional=True`:** catches
+`AssetNotFoundError` and logs warning instead of raising — useful during development
+when assets may be missing.
 
 ## Input
 
@@ -300,9 +294,8 @@ class InputManager:
     def translate(self, raw_events) -> list[InputEvent]
 ```
 
-**World coords:** `_with_world_coords(event, camera)` in `Game.tick()` creates a new
-frozen InputEvent via `dataclasses.replace()` before any handler sees it. Mouse events
-get camera-transformed coords (or screen coords if no camera). Non-mouse events: `None`.
+**World coords:** Populated via `dataclasses.replace()` before dispatch. Mouse events get
+camera-transformed coords; non-mouse events: `None`.
 
 ## Assets
 
@@ -322,22 +315,14 @@ class AssetNotFoundError(FileNotFoundError): ...
 ## Timers & Tweens
 
 ```python
-class TimerManager:
-    def after(self, delay, callback) -> int; def every(self, interval, callback) -> int
-    def cancel(self, timer_id); def cancel_all(); def update(self, dt)
-
-class TweenManager:
-    def create(self, target, prop, from_val, to_val, duration,
-               *, ease=Ease.LINEAR, on_complete=None) -> int
-    def cancel(self, tween_id); def update(self, dt)
-
-def tween(target, prop, from_val, to_val, duration, *,
-          ease=Ease.LINEAR, on_complete=None) -> int  # module-level convenience
-
+class TimerManager:  # after(delay, cb)->int, every(interval, cb)->int, cancel(id), cancel_all()
+class TweenManager:  # create(target, prop, from, to, duration, ease, on_complete)->int, cancel(id)
+def tween(target, prop, from_val, to_val, duration, *, ease=Ease.LINEAR, on_complete=None) -> int
 class Ease(Enum): LINEAR, EASE_IN, EASE_OUT, EASE_IN_OUT
 ```
 
 Game exposes: `game.after()`, `game.every()`, `game.cancel()`, `game.cancel_tween()`.
+**Prefer `Scene.after()`/`Scene.every()`** for auto-cleanup (see Scene section).
 
 ---
 
@@ -372,29 +357,17 @@ with `Game._particle_emitters`.
 ## ColorSwap, Cursor, Save/Load
 
 ```python
-class ColorSwap:
-    def __init__(self, source_colors, target_colors)  # list[tuple[int,int,int]]
+class ColorSwap:      # source_colors, target_colors → Pillow pixel replacement, cached as GPU texture
     def apply(self, image_path) -> PIL.Image.Image; def cache_key(self) -> tuple
 def register_palette(name, swap); def get_palette(name) -> ColorSwap
 
-class CursorManager:
-    def register(self, name, image_name, hotspot=(0,0))
-    def set(self, name)          # "default" restores system cursor
-    def set_visible(self, visible: bool); @property current -> str
-
-class SaveManager:
-    def __init__(self, save_dir: Path)
-    def save(self, slot, state: dict, scene_class_name: str)
-    def load(self, slot) -> dict | None
-    def list_slots(self, count=10) -> list[dict | None]; def delete(self, slot)
+class CursorManager:  # register(name, image_name, hotspot), set(name), set_visible(bool)
+class SaveManager:    # save(slot, state, scene_class_name), load(slot), list_slots(), delete(slot)
 ```
 
-**ColorSwap:** Load-time Pillow pixel replacement, cached as GPU texture. Sprite
-accepts `color_swap=` or `team_palette=` (registry lookup). `color_swap` wins.
-
-**Save format:** `{"version": 1, "timestamp": "ISO-8601", "scene_class": "...", "state": {...}}`
-File: `save_{slot}.json`, default dir: `~/.{slug}/saves/`. `game.save(slot)` calls
-top scene's `get_save_state()`. `game.load(slot)` calls `load_save_state()` + returns dict.
+**ColorSwap:** Sprite accepts `color_swap=` or `team_palette=` (registry lookup). `color_swap` wins.
+**Save format:** `save_{slot}.json` in `~/.{slug}/saves/`. `game.save()` → `get_save_state()`;
+`game.load()` → `load_save_state()` + returns dict.
 
 ---
 
@@ -411,19 +384,10 @@ class Component:
     def __init__(self, *, width=None, height=None, anchor=None, margin=0,
                  visible=True, enabled=True, style=None,
                  draggable=False, drag_data=None, drop_accept=None, on_drop=None)
-
-    def add(self, child: Component) -> None
-    def remove(self, child: Component) -> None
-    @property parent -> Component | None
-    @property children -> list[Component]
-
-    def get_preferred_size(self) -> tuple[int, int]
-    def hit_test(self, x, y) -> bool
-    def handle_event(self, event) -> bool   # tree dispatch
-    def on_event(self, event) -> bool       # subclass override point
-    def draw(self) -> None                  # tree draw
-    def on_draw(self) -> None               # subclass override point
-    def update(self, dt) -> None            # per-frame (no-op default)
+    # Tree: add(child), remove(child), parent, children
+    # Overrides: on_event(event)->bool, on_draw(), update(dt)
+    # Framework: handle_event(event)->bool (tree dispatch), draw() (tree draw),
+    #            get_preferred_size(), hit_test(x, y)
 ```
 
 Layout computed lazily (dirty flag). `_ensure_layout()` called before draw/input.
@@ -442,29 +406,14 @@ class Button(Component):   __init__(self, text, *, on_click=None, style=None, **
 class Panel(Component):    __init__(self, *, layout=Layout.NONE, spacing=0, padding=0, **kw)
 
 # Extended (easygame/ui/widgets.py)
-class ImageBox(Component):    __init__(self, image_name, *, width=64, height=64, **kw)
-                              image_name: str  # settable
-class ProgressBar(Component): __init__(self, value=0, max_value=100, *, width=200, height=24,
-                                       bar_color=None, bg_color=None, **kw)
-                              value: float; fraction: float  # settable / read-only
-class TextBox(Component):     __init__(self, text, *, width=None, height=None,
-                                       typewriter_speed=0.05, **kw)
-                              text: str; is_typewriter_done: bool; skip_typewriter()
-class List(Component):        __init__(self, items, *, width=300, item_height=40,
-                                       on_select=None, **kw)
-                              selected_index: int|None; set_items(); set_selected()
-class Grid(Component):        __init__(self, columns, rows, *, cell_width=80, cell_height=80,
-                                       spacing=4, on_select=None, **kw)
-                              set_cell(col, row, comp); get_cell(col, row)
-                              selected_cell: tuple[int,int]|None
-class Tooltip(Component):     __init__(self, target, text, *, delay=0.5, **kw)
-                              # Dual visibility: Component.visible=True; draw gated by _visible_now
-class TabGroup(Component):    __init__(self, tabs: list[tuple[str, Component]], *,
-                                       on_change=None, **kw)
-                              active_tab_index: int; set_active_tab(index)
-class DataTable(Component):   __init__(self, columns, rows, *, col_widths=None,
-                                       row_height=32, on_select=None, **kw)
-                              set_data(columns, rows); selected_row: int|None
+class ImageBox(Component):    # image_name (settable), width, height
+class ProgressBar(Component): # value (settable), max_value, fraction (read-only), bar_color, bg_color
+class TextBox(Component):     # text, typewriter_speed; is_typewriter_done, skip_typewriter()
+class List(Component):        # items, on_select; selected_index, set_items(), set_selected()
+class Grid(Component):        # columns, rows, cell_width, cell_height; set_cell(), get_cell()
+class Tooltip(Component):     # target, text, delay; dual visibility (Component.visible + _visible_now)
+class TabGroup(Component):    # tabs: list[(str, Component)]; active_tab_index, set_active_tab()
+class DataTable(Component):   # columns, rows, col_widths; set_data(), selected_row
 ```
 
 ### Layout, Theme & Style
@@ -481,44 +430,30 @@ class ResolvedStyle: # all concrete — result of theme resolution
 #            border_color, border_width, hover_color, press_color
 
 class Theme:
-    def __init__(self, *, font="serif", font_size=24, text_color=...,
-                 panel_*=..., button_*=..., label_*=..., progressbar_*=...,
-                 button_disabled_color=(40,42,55,200),
-                 button_disabled_text_color=(100,100,110,200),
-                 selected_color=..., tooltip_*=..., tab_*=..., datatable_*=...,
-                 drop_accept_color=..., drop_reject_color=..., ghost_opacity=0.5)
-    # resolve_{label,button,panel,...}_style()
-    # resolve_button_style(explicit, state) — state: "normal"|"hovered"|"pressed"|"disabled"
+    # font, font_size, text_color + per-widget color groups (panel_*, button_*, label_*,
+    # progressbar_*, tooltip_*, tab_*, datatable_*, drop_*, ghost_opacity)
+    # resolve_{label,button,panel,...}_style(); button state: "normal"|"hovered"|"pressed"|"disabled"
 ```
 
-Widget-specific colors not in `ResolvedStyle` are Theme properties (e.g.,
-`theme.progressbar_color`, `theme.selected_color`, `theme.tab_active_color`).
-
+Widget-specific colors are Theme properties (`progressbar_color`, `selected_color`, etc.).
 **Disabled buttons:** `Button.on_draw()` resolves `"disabled"` state when `enabled=False`.
-Theme provides `button_disabled_color` and `button_disabled_text_color` for muted visuals.
 
 ---
 
 ## Drag-and-Drop, HUD, Convenience Screens
 
 ```python
-class DragManager:                         # lazy on _UIRoot
-    @property is_dragging -> bool; @property drag_data -> Any | None
-    def handle_event(self, event) -> bool
-# Any Component: draggable=True, drag_data=..., drop_accept=fn, on_drop=fn
-# Drag-start checked BEFORE on_event (beats Button.on_click). Escape cancels.
+class DragManager:   # lazy on _UIRoot; is_dragging, drag_data, handle_event()
+# Component kwargs: draggable, drag_data, drop_accept, on_drop. Escape cancels.
 
-class HUD:                                 # lazy on game.hud
-    visible: bool = True
-    def add(self, component); def remove(self, component); def clear(self)
-# Wraps _UIRoot. Visible when hud.visible AND top_scene.show_hud.
-# Draws above base scene, below transparent overlays.
+class HUD:           # lazy on game.hud; add(comp), remove(comp), clear()
+# Visible when hud.visible AND top_scene.show_hud. Above base scene, below overlays.
 
-# Convenience screens — all Scene subclasses, transparent=True, show_hud=False, modal
-class MessageScreen(Scene):   __init__(self, text, *, on_dismiss=None)
-class ChoiceScreen(Scene):    __init__(self, prompt, choices, *, on_choice=None)
-class ConfirmDialog(Scene):   __init__(self, question, *, on_confirm=None, on_cancel=None)
-class SaveLoadScreen(Scene):  __init__(self, mode, *, on_save=None, on_load=None, on_cancel=None)
+# Convenience screens — transparent=True, show_hud=False, modal
+class MessageScreen(Scene):   # text, on_dismiss
+class ChoiceScreen(Scene):    # prompt, choices, on_choice
+class ConfirmDialog(Scene):   # question, on_confirm, on_cancel
+class SaveLoadScreen(Scene):  # mode, on_save, on_load, on_cancel
 ```
 
 `game.show_sequence(screens, on_complete=...)` chains via `on_reveal()` lifecycle.
@@ -527,37 +462,16 @@ class SaveLoadScreen(Scene):  __init__(self, mode, *, on_save=None, on_load=None
 
 ## Backend Protocol
 
-```python
-class Backend(Protocol):
-    # Window lifecycle
-    create_window(width, height, title, fullscreen, visible=True)
-    begin_frame(clear_color=None); end_frame(); poll_events() -> list[Event]; get_dt() -> float; quit()
+Game code should NOT access `game._backend` directly — use `Scene.draw_rect()` /
+`Scene.draw_world_rect()` instead. Backend is an internal abstraction.
 
-    # Images & sprites
-    load_image(path) -> ImageHandle; load_image_from_pil(pil_image) -> ImageHandle
-    get_image_size(image_handle) -> tuple[int, int]
-    create_sprite(image_handle, order) -> SpriteId; remove_sprite(sprite_id)
-    update_sprite(sprite_id, x, y, *, image=None, opacity=255, visible=True)
-    set_sprite_order(sprite_id, order)
+**Key groups:** window lifecycle (`create_window`, `begin_frame`/`end_frame`, `poll_events`,
+`get_dt`, `quit`), image/sprite management (`load_image`, `create_sprite`, `update_sprite`,
+`remove_sprite`), per-frame drawing (`draw_rect`, `draw_text`, `draw_image`, `load_font`),
+cursor (`set_cursor`, `set_cursor_visible`), audio (`load_sound`/`play_sound`,
+`load_music`/`play_music`, `set_player_volume`, `stop_player`).
 
-    # Per-frame drawing (cleared each begin_frame; uses _ui_overlay_group order=100)
-    draw_rect(x, y, w, h, color, *, opacity=1.0)
-    draw_text(text, x, y, font_size, color, *, font=None, anchor_x="left", anchor_y="baseline")
-    draw_image(image_handle, x, y, w, h, *, opacity=1.0)
-    load_font(name, path=None) -> FontHandle
-
-    # Cursor
-    set_cursor(image_handle, hotspot_x=0, hotspot_y=0); set_cursor_visible(visible)
-
-    # Audio
-    load_sound(path) -> SoundHandle; play_sound(sound_handle, volume=1.0)
-    load_music(path) -> SoundHandle
-    play_music(music_handle, loop=True, volume=1.0) -> PlayerHandle
-    set_player_volume(player_id, volume); stop_player(player_id)
-```
-
-**Persistent sprites** (`create_sprite`/`update_sprite`) participate in camera sync.
-**Per-frame draws** (`draw_rect`/`draw_text`/`draw_image`) are screen-space UI only.
+**Persistent sprites** participate in camera sync. **Per-frame draws** are screen-space only.
 
 ---
 
@@ -583,11 +497,9 @@ game = Game("Title", resolution=(1920, 1080), fullscreen=False, backend="pyglet"
 game.run(StartScene())
 ```
 
-**Asset generation:** All placeholder art is Pillow-generated via `assetgen/` primitives
-(`solid_rect`, `labeled_rect`, `circle`, `triangle`, `ring`, `filled_ellipse`,
-`vertical_gradient`, `crosshatch`, wireframe 3D). Each example/tutorial adds a
-generator module in `assetgen/` and a corresponding call in `generate_assets.py`.
-Assets go to both `assets/images/sprites/` (tests) and the local example dir.
+**Asset generation:** Pillow-generated via `assetgen/` primitives. Each example/tutorial
+adds a generator module called from `generate_assets.py`. Assets go to both
+`assets/images/sprites/` (tests) and the local example/tutorial dir.
 
 **Import style:** Flat from `easygame` — never from subpackages:
 ```python
@@ -601,22 +513,88 @@ from easygame import Game, Scene, Sprite, Camera, Panel, Label, Button, ...
 
 ## Stage 3: API Improvements — Completed
 
-Seven friction points from TD tutorial (chapters 1–3) resolved. All changes are
+Seven friction points from TD tutorial (chapters 1–3) resolved. All additive/backward-compatible.
+Signatures integrated into subsystem sections above.
+
+**Changes:** `Scene.background_color`, `Scene.add_sprite()`/`remove_sprite()`,
+`Game(asset_path=...)`, `Button` disabled visual, `Label(font_size=, text_color=)`,
+`Camera.enable_key_scroll()`, `InputEvent.world_x/y`.
+
+**Key decisions:** `InputEvent` stays `frozen=True` (world coords via `dataclasses.replace()`).
+`add_sprite()` takes existing Sprite, not construction args. `_cleanup_owned_sprites()` runs
+after `on_exit()`. `Camera.handle_input()` consumes directional keys before scene.
+
+---
+
+## TD Tutorial: Chapters 4–6 (as implemented)
+
+### Chapter 4 — Enemies & Waves
+
+**Data:** `ENEMY_DEFS` (name, image, hp, speed, gold_reward) + `WAVE_DEFS` (enemy_def
+index, count, spawn_interval, delay).
+
+**Enemy record:** `self._enemies: list[dict]` — sprite, fsm, hp, max_hp, speed,
+gold_reward, path_index, def. `SpriteAnchor.CENTER` on `RenderLayer.OBJECTS`.
+
+**Movement:** `sprite.move_to(target, speed, on_arrive=callback)` with chained callbacks.
+Does NOT use `Sequence(MoveTo, Do)` — avoids action re-entrancy trap.
+
+**FSM:** 3-state: `walking → dying → dead`. Death triggers `FadeOut(0.4) + Do + Remove()`.
+
+**Wave spawning:** Chained `self.after(interval, _spawn_enemy)` calls — scene-scoped,
+auto-cancelled on exit. No manual `_timer_ids` tracking needed.
+
+### Chapter 5 — Combat
+
+**Targeting:** Per-frame cooldown decrement. When ≤ 0, closest walking enemy in range →
+fire projectile via `sprite.move_to()`. On arrival: damage + `ParticleEmitter.burst()`.
+
+**Health bars:** `self.draw_world_rect()` in `draw()` — uses public `sprite.x`/`sprite.y`.
+Camera transform handled automatically by the framework helper.
+
+### Chapter 6 — Complete Game
+
+**Game over:** Lives ≤ 0 → `ChoiceScreen`. Retry deferred via `self.after(0, ...)`.
+
+**Win condition:** All waves + enemies done → `MessageScreen` with double-pop back to title.
+
+**Audio:** `game.audio.play_sound(name, optional=True)` / `play_music(name, optional=True)`.
+No try/except wrappers needed. SFX: shoot, hit, death, wave, lose_life. Music: bgm_game.
+
+**Speed toggle:** Space toggles `_speed_multiplier` (1.0/2.0), tower cooldown only.
+Does NOT affect enemy movement or timers (framework-level time scaling not supported).
+
+---
+
+## Stage 5: API Friction Fixes — Completed
+
+Four friction points from TD tutorial round 2 (#8–#11) resolved. All changes are
 additive (backward-compatible). Signatures integrated into subsystem sections above.
 
-| Change | Files touched |
-|--------|---------------|
-| `Scene.background_color` | `scene.py` (attr + SceneStack), `game.py` (begin_frame) |
-| `Scene.add_sprite()` / `remove_sprite()` | `scene.py` (ownership + lifecycle), `sprite.py` (deregister) |
-| `Game(asset_path=...)` | `game.py` (__init__ + assets property) |
-| `Button` disabled visual | `components.py` (on_draw), `theme.py` (disabled fields + resolve) |
-| `Label(font_size=, text_color=)` | `components.py` (Label.__init__ + _merge_label_style) |
-| `Camera.enable_key_scroll()` | `camera.py` (handle_input + update), `game.py` (dispatch) |
-| `InputEvent.world_x/y` | `input.py` (fields + _with_world_coords), `game.py` (dispatch) |
+| # | Issue | Resolution |
+|---|-------|------------|
+| 8 | Timer cleanup is manual (~30 occurrences) | `Scene.after()` / `Scene.every()` / `Scene.cancel_timer()` with auto-cleanup |
+| 9 | Action re-entrancy: `Do` + `sprite.do()` | Documented in LIMITATIONS.md; workaround: `sprite.move_to(on_arrive=...)` |
+| 10 | Health bars require `game._backend.draw_rect()` | `Scene.draw_rect()` / `Scene.draw_world_rect()` |
+| 11 | Audio crashes on missing assets | `play_sound(optional=True)` / `play_music(optional=True)` |
 
-**Key design decisions:**
-- `InputEvent` stays `frozen=True`; world coords populated via `dataclasses.replace()`
-- `add_sprite()` takes an already-created Sprite (not construction args) for flexibility
-- `_cleanup_owned_sprites()` runs *after* user's `on_exit()` so custom cleanup can run first
-- `Camera.handle_input()` consumes directional keys; scene can still override by consuming first
-- `Label` gets `font_size`/`text_color`/`font` convenience kwargs; `Button` uses `style=` only
+**Additional deliverables:**
+- `examples/tower_defense/` — complete standalone game
+- `tutorials/tower_defense/README.md` — tutorial walkthrough
+- `LIMITATIONS.md` — 6 items (4 from stage 3 + action re-entrancy + speed toggle)
+- Tutorials ch4–ch6 updated to use new APIs (no `_timer_ids`, no `_backend` access,
+  no try/except audio wrappers)
+
+### Subsystem Coverage
+
+**Exercised (15):** Game, Scene (push/pop/replace + timers + draw helpers), Sprite,
+Camera (center_on, key_scroll, world_to_screen, world_bounds), Actions (Sequence, Do,
+FadeOut, Remove), StateMachine, ParticleEmitter, Timers (Scene.after), Audio
+(play_sound, play_music, stop_music, optional=True), UI (Panel, Label, Button),
+HUD, InputEvent (world_x/y), ChoiceScreen, MessageScreen, AssetManager
+
+**Not exercised:** Save/Load, Cursor, ColorSwap, DragManager, AnimationDef, Tweens,
+ProgressBar, ImageBox, TextBox, List, Grid, Tooltip, TabGroup, DataTable,
+show_sequence, Parallel/FadeIn/Repeat/Delay/PlayAnim, camera.follow/pan_to/edge_scroll
+
+Coverage gap is acceptable for a TD game. Future tutorials would cover remaining subsystems.

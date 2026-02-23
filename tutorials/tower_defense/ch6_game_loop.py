@@ -9,7 +9,7 @@ combines everything from Chapters 1–5 and adds game-loop polish:
     waves cleared, all enemies gone) pushes a :class:`MessageScreen`.
 *   **Audio** — background music (``bgm_game``), sound effects for
     shooting, impacts, enemy death, wave start, and life loss.
-    Missing audio files are silently ignored via ``try/except``.
+    Missing audio files are silently ignored via ``optional=True``.
 *   **Score system** — tracks total score (kills × enemy gold value).
     Displayed in the HUD alongside gold, lives, and wave counter.
 *   **5 waves** — escalating difficulty with more enemies, mixed types,
@@ -320,31 +320,22 @@ TOWER_SLOTS: list[tuple[int, int]] = [
 
 
 # ======================================================================
-# Audio helper — safe sound playback
+# Audio helpers — safe sound playback using optional=True
 # ======================================================================
 
 def _play_sfx(game: Game, name: str) -> None:
     """Play a sound effect, silently ignoring missing assets."""
-    try:
-        game.audio.play_sound(name)
-    except Exception:
-        pass  # Audio files may not exist — run silent.
+    game.audio.play_sound(name, optional=True)
 
 
 def _play_music(game: Game, name: str) -> None:
     """Start background music, silently ignoring missing assets."""
-    try:
-        game.audio.play_music(name)
-    except Exception:
-        pass
+    game.audio.play_music(name, optional=True)
 
 
 def _stop_music(game: Game) -> None:
-    """Stop background music, silently ignoring errors."""
-    try:
-        game.audio.stop_music()
-    except Exception:
-        pass
+    """Stop background music."""
+    game.audio.stop_music()
 
 
 # ======================================================================
@@ -460,11 +451,6 @@ class GameScene(Scene):
         self._projectiles: list[dict[str, Any]] = []
 
         # -----------------------------------------------------------------
-        # Timer IDs
-        # -----------------------------------------------------------------
-        self._timer_ids: list[int] = []
-
-        # -----------------------------------------------------------------
         # 1. Camera
         # -----------------------------------------------------------------
         self.camera = Camera(
@@ -512,18 +498,14 @@ class GameScene(Scene):
         # -----------------------------------------------------------------
         # 7. Schedule wave 1
         # -----------------------------------------------------------------
-        tid = self.game.after(2.0, self._start_next_wave)
-        self._timer_ids.append(tid)
+        self.after(2.0, self._start_next_wave)
 
     # ------------------------------------------------------------------
     # on_exit
     # ------------------------------------------------------------------
 
     def on_exit(self) -> None:
-        """Cancel all pending timers and stop music."""
-        for tid in self._timer_ids:
-            self.game.cancel(tid)
-        self._timer_ids.clear()
+        """Stop music.  Timers and sprites are auto-cleaned by the framework."""
         _stop_music(self.game)
 
     # ------------------------------------------------------------------
@@ -812,8 +794,7 @@ class GameScene(Scene):
         if self._wave_spawned >= wave["count"]:
             return
         interval = wave["spawn_interval"]
-        tid = self.game.after(interval, self._spawn_enemy)
-        self._timer_ids.append(tid)
+        self.after(interval, self._spawn_enemy)
 
     def _spawn_enemy(self) -> None:
         if self._current_wave >= len(WAVE_DEFS) or self._game_over:
@@ -965,8 +946,7 @@ class GameScene(Scene):
 
         self._hint_label.text = "Next wave incoming..."
         wave_delay = WAVE_DEFS[self._current_wave]["delay"]
-        tid = self.game.after(wave_delay, self._start_next_wave)
-        self._timer_ids.append(tid)
+        self.after(wave_delay, self._start_next_wave)
 
     def _check_victory(self) -> None:
         """Check if the player has won (all waves done, no enemies alive)."""
@@ -993,14 +973,9 @@ class GameScene(Scene):
     # ==================================================================
 
     def _trigger_game_over(self) -> None:
-        """Handle game-over state: cancel timers, push choice overlay."""
+        """Handle game-over state: push choice overlay."""
         self._game_over = True
         self._update_hint_text()
-
-        # Cancel all pending spawn timers.
-        for tid in self._timer_ids:
-            self.game.cancel(tid)
-        self._timer_ids.clear()
 
         _stop_music(self.game)
 
@@ -1192,8 +1167,6 @@ class GameScene(Scene):
     # ==================================================================
 
     def draw(self) -> None:
-        backend = self.game._backend
-
         for enemy in self._enemies:
             if enemy["fsm"].state != "walking":
                 continue
@@ -1207,12 +1180,11 @@ class GameScene(Scene):
             if esp.is_removed:
                 continue
 
-            sx, sy = self.camera.world_to_screen(esp._x, esp._y)
+            # World-space health bar position (camera transform is automatic).
+            bar_x = esp._x - HEALTH_BAR_WIDTH / 2
+            bar_y = esp._y + HEALTH_BAR_Y_OFFSET
 
-            bar_x = int(sx - HEALTH_BAR_WIDTH / 2)
-            bar_y = int(sy + HEALTH_BAR_Y_OFFSET)
-
-            backend.draw_rect(
+            self.draw_world_rect(
                 bar_x, bar_y,
                 HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT,
                 HEALTH_BAR_BG_COLOR,
@@ -1221,7 +1193,7 @@ class GameScene(Scene):
             hp_ratio = max(0.0, hp / max_hp)
             fill_width = max(1, int(HEALTH_BAR_WIDTH * hp_ratio))
 
-            backend.draw_rect(
+            self.draw_world_rect(
                 bar_x, bar_y,
                 fill_width, HEALTH_BAR_HEIGHT,
                 HEALTH_BAR_FG_COLOR,

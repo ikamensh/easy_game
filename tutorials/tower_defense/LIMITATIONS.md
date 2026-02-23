@@ -40,3 +40,20 @@ regions (e.g. split view). For transparent overlay scenes, the base
 left/right/up/down before the scene’s `handle_input`. If a scene needs
 those keys for something else (e.g. menu navigation), it won’t receive
 them when the camera has key scroll enabled.
+
+---
+
+## Action re-entrancy
+
+**Calling `sprite.do()` from inside a Sequence's `Do()` callback causes
+the new action to be silently overwritten** by the continuing Sequence.
+Workaround: use `sprite.move_to(on_arrive=callback)` instead when you
+need to chain movement with follow-up actions.
+
+---
+
+## Speed toggle
+
+**`game.time_scale` (or similar) only affects `update()` timing, not
+`draw()`.** Frame rate and rendering cadence are unchanged; only the
+delta passed to `update` is scaled.

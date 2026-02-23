@@ -13,10 +13,10 @@ Building on Chapter 4, this chapter adds **tower combat**:
     itself.  Splash towers damage all enemies within a radius.
 *   **Enemy HP** tracking — when HP drops to 0, the enemy enters the
     ``dying`` state, awards gold, and plays a fade-out death animation.
-*   **Health bars** — drawn per-frame via ``draw_rect()`` in the scene's
-    ``draw()`` method.  A red background bar and green foreground bar
-    (proportional to current HP) appear above enemies whose HP is below
-    maximum.
+*   **Health bars** — drawn per-frame via ``self.draw_world_rect()`` in
+    the scene's ``draw()`` method.  A red background bar and green
+    foreground bar (proportional to current HP) appear above enemies
+    whose HP is below maximum.
 *   **Tower differentiation** — Basic (medium damage, medium rate, medium
     range), Sniper (high damage, slow rate, long range), Splash (low
     per-target damage with area splash, short range).
@@ -361,7 +361,7 @@ class GameScene(Scene):
     *   Projectiles fly from tower to target position and deal damage
         on arrival.
     *   Splash towers damage all enemies within a radius at impact.
-    *   Enemy health bars are drawn via ``draw_rect()`` each frame.
+    *   Enemy health bars are drawn via ``self.draw_world_rect()`` each frame.
     *   Enemies that reach 0 HP enter the ``dying`` FSM state, award
         gold, and fade out.
     """
@@ -419,11 +419,6 @@ class GameScene(Scene):
         self._projectiles: list[dict[str, Any]] = []
 
         # -----------------------------------------------------------------
-        # Timer IDs — tracked so we can cancel them in on_exit().
-        # -----------------------------------------------------------------
-        self._timer_ids: list[int] = []
-
-        # -----------------------------------------------------------------
         # 1. Camera
         # -----------------------------------------------------------------
         self.camera = Camera(
@@ -466,23 +461,7 @@ class GameScene(Scene):
         # -----------------------------------------------------------------
         # 6. Schedule wave 1 to start after a short delay.
         # -----------------------------------------------------------------
-        tid = self.game.after(2.0, self._start_next_wave)
-        self._timer_ids.append(tid)
-
-    # ------------------------------------------------------------------
-    # on_exit — cancel timers (sprites are cleaned up by add_sprite)
-    # ------------------------------------------------------------------
-
-    def on_exit(self) -> None:
-        """Cancel all pending timers.
-
-        Sprites registered via ``add_sprite()`` are cleaned up automatically
-        by the framework after this method returns — no manual sprite cleanup
-        needed.
-        """
-        for tid in self._timer_ids:
-            self.game.cancel(tid)
-        self._timer_ids.clear()
+        self.after(2.0, self._start_next_wave)
 
     # ------------------------------------------------------------------
     # Tile map creation (same as ch3/ch4)
@@ -782,8 +761,7 @@ class GameScene(Scene):
             return
 
         interval = wave["spawn_interval"]
-        tid = self.game.after(interval, self._spawn_enemy)
-        self._timer_ids.append(tid)
+        self.after(interval, self._spawn_enemy)
 
     def _spawn_enemy(self) -> None:
         """Spawn one enemy for the current wave and schedule the next."""
@@ -876,9 +854,6 @@ class GameScene(Scene):
 
         if self._lives <= 0 and not self._game_over:
             self._game_over = True
-            for tid in self._timer_ids:
-                self.game.cancel(tid)
-            self._timer_ids.clear()
             self._update_hint_text()
             print("Game Over!")
 
@@ -956,8 +931,7 @@ class GameScene(Scene):
 
         self._hint_label.text = "Next wave incoming..."
         wave_delay = WAVE_DEFS[self._current_wave]["delay"]
-        tid = self.game.after(wave_delay, self._start_next_wave)
-        self._timer_ids.append(tid)
+        self.after(wave_delay, self._start_next_wave)
 
     # ==================================================================
     # Tower combat — targeting, projectiles, damage
@@ -1187,13 +1161,11 @@ class GameScene(Scene):
     def draw(self) -> None:
         """Custom per-frame rendering: enemy health bars.
 
-        Uses ``draw_rect()`` (screen-space, cleared each frame) to draw
-        a red background and green foreground bar above each enemy that
-        has taken damage.  World coordinates are converted to screen
-        coordinates via ``camera.world_to_screen()``.
+        Uses ``self.draw_world_rect()`` to draw a red background and
+        green foreground bar above each enemy that has taken damage.
+        World-space coordinates are automatically transformed by the
+        camera — no manual ``world_to_screen()`` needed.
         """
-        backend = self.game._backend
-
         for enemy in self._enemies:
             if enemy["fsm"].state not in ("walking",):
                 continue  # Don't show health bars on dying enemies.
@@ -1208,15 +1180,12 @@ class GameScene(Scene):
             if esp.is_removed:
                 continue
 
-            # Convert world position to screen coordinates.
-            sx, sy = self.camera.world_to_screen(esp._x, esp._y)
-
-            # Centre the health bar above the enemy.
-            bar_x = int(sx - HEALTH_BAR_WIDTH / 2)
-            bar_y = int(sy + HEALTH_BAR_Y_OFFSET)
+            # Centre the health bar above the enemy (world-space coords).
+            bar_x = esp._x - HEALTH_BAR_WIDTH / 2
+            bar_y = esp._y + HEALTH_BAR_Y_OFFSET
 
             # Background bar (dark red).
-            backend.draw_rect(
+            self.draw_world_rect(
                 bar_x, bar_y,
                 HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT,
                 HEALTH_BAR_BG_COLOR,
@@ -1226,7 +1195,7 @@ class GameScene(Scene):
             hp_ratio = max(0.0, hp / max_hp)
             fill_width = max(1, int(HEALTH_BAR_WIDTH * hp_ratio))
 
-            backend.draw_rect(
+            self.draw_world_rect(
                 bar_x, bar_y,
                 fill_width, HEALTH_BAR_HEIGHT,
                 HEALTH_BAR_FG_COLOR,

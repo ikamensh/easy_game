@@ -15,7 +15,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
-from easygame.assets import AssetManager
+from easygame.assets import AssetManager, AssetNotFoundError
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +165,7 @@ class AudioManager:
     # Sound effects
     # ------------------------------------------------------------------
 
-    def play_sound(self, name: str, *, channel: str = "sfx") -> None:
+    def play_sound(self, name: str, *, channel: str = "sfx", optional: bool = False) -> None:
         """Play a sound effect by name (fire-and-forget).
 
         The effective volume is ``master * channel``.
@@ -174,8 +174,15 @@ class AudioManager:
             name:    Sound name resolved via
                      :meth:`AssetManager.sound` (no extension needed).
             channel: Volume channel — ``"sfx"`` (default) or ``"ui"``.
+            optional: If True and the asset is missing, return None instead of
+                      raising :exc:`AssetNotFoundError`.
         """
-        handle = self._assets.sound(name)
+        try:
+            handle = self._assets.sound(name)
+        except AssetNotFoundError:
+            if optional:
+                return None
+            raise
         effective = self._volumes["master"] * self._volumes.get(channel, 1.0)
         self._backend.play_sound(handle, volume=effective)
 
@@ -183,15 +190,24 @@ class AudioManager:
     # Music
     # ------------------------------------------------------------------
 
-    def play_music(self, name: str, *, loop: bool = True) -> None:
+    def play_music(self, name: str, *, loop: bool = True, optional: bool = False) -> None:
         """Stop any current music and start playing *name*.
 
         No crossfade — immediate switch.  Use :meth:`crossfade_music` for
         smooth transitions.
+
+        Parameters:
+            optional: If True and the asset is missing, return None instead of
+                      raising :exc:`AssetNotFoundError`.
         """
         self.stop_music()
 
-        handle = self._assets.music(name)
+        try:
+            handle = self._assets.music(name)
+        except AssetNotFoundError:
+            if optional:
+                return None
+            raise
         effective = self._volumes["master"] * self._volumes["music"]
         player_id = self._backend.play_music(handle, loop=loop, volume=effective)
 

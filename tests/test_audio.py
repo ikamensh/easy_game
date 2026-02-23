@@ -262,6 +262,19 @@ class TestPlaySound:
         audio.play_sound("sword_hit")
         assert backend.sounds_played[0]["volume"] == pytest.approx(0.3)
 
+    def test_play_sound_missing_raises(self, audio: AudioManager) -> None:
+        """Missing sound raises AssetNotFoundError when optional=False."""
+        with pytest.raises(AssetNotFoundError, match="Sound"):
+            audio.play_sound("nonexistent")
+
+    def test_play_sound_missing_optional_returns_none(
+        self, audio: AudioManager, backend: MockBackend,
+    ) -> None:
+        """Missing sound with optional=True returns None, no backend call."""
+        result = audio.play_sound("nonexistent", optional=True)
+        assert result is None
+        assert len(backend.sounds_played) == 0
+
 
 # ==================================================================
 # 3. play_music
@@ -326,6 +339,19 @@ class TestPlayMusic:
         assert audio._current_music_name == "exploration"
         audio.play_music("battle")
         assert audio._current_music_name == "battle"
+
+    def test_play_music_missing_raises(self, audio: AudioManager) -> None:
+        """Missing music raises AssetNotFoundError when optional=False."""
+        with pytest.raises(AssetNotFoundError, match="Music"):
+            audio.play_music("nonexistent")
+
+    def test_play_music_missing_optional_returns_none(
+        self, audio: AudioManager, backend: MockBackend,
+    ) -> None:
+        """Missing music with optional=True returns None, no backend call."""
+        result = audio.play_music("nonexistent", optional=True)
+        assert result is None
+        assert backend.music_playing is None
 
 
 # ==================================================================

@@ -352,7 +352,7 @@ if event.type == "click" and event.world_x is not None and event.world_y is not 
 
 ---
 
-## 8. Timer cleanup is manual and error-prone — OPEN
+## 8. Timer cleanup is manual and error-prone — RESOLVED
 
 ### The awkward code
 
@@ -382,23 +382,27 @@ Scene-scoped timers are extremely common (wave spawning, delayed events,
 scheduled actions), and the bookkeeping grows linearly with timer usage.
 Forgetting to track even one timer causes a callback on a dead scene.
 
-### Suggested fix
+### Fix
 
-A `Scene.after(delay, callback)` method that auto-cancels all pending
-timers when the scene exits, mirroring `Scene.add_sprite()`.
+Added `Scene.after(delay, callback)` and `Scene.every(interval, callback)`
+methods that register ownership. The framework calls
+`_cleanup_owned_timers()` after `on_exit()`, auto-cancelling all owned
+timers. `Scene.cancel_timer(timer_id)` allows early manual cancellation.
+One-shot timers auto-deregister from the owned set when they fire
+naturally.
 
 ```python
 # Instead of:
 tid = self.game.after(2.0, self._start_next_wave)
 self._timer_ids.append(tid)
 
-# Proposed:
+# Now:
 self.after(2.0, self._start_next_wave)  # auto-cancelled on scene exit
 ```
 
 ---
 
-## 9. Composable Action re-entrancy: Sequence + Do + sprite.do() — OPEN
+## 9. Composable Action re-entrancy: Sequence + Do + sprite.do() — KNOWN LIMITATION
 
 ### The awkward code
 
@@ -436,15 +440,14 @@ enemy["sprite"].move_to(
 )
 ```
 
-### Suggested fix
+### Known limitation
 
-Either document the re-entrancy limitation prominently, or have `Do`
-defer `sprite.do()` calls to the next frame so the parent Sequence
-finishes first.
+Documented as a framework limitation. Use `sprite.move_to(..., on_arrive=)`
+for chained waypoint movement instead of `Sequence` + `Do` + `sprite.do()`.
 
 ---
 
-## 10. Health bars require raw backend draw_rect calls — OPEN
+## 10. Health bars require raw backend draw_rect calls — RESOLVED
 
 ### The awkward code
 
@@ -480,19 +483,33 @@ game.  Requiring raw backend calls and manual coordinate transforms is a
 lot of ceremony for drawing a rectangle.  The `_backend` is a private
 API — game code shouldn't need it.
 
-### Suggested fix
+### Fix
 
-A `Scene.draw_world_rect(x, y, w, h, color)` method that auto-applies
-camera transform, or better yet, a `Sprite.add_overlay(HealthBar(...))`
-API that draws decorations relative to the sprite automatically.
+Added `Scene.draw_rect(x, y, width, height, color)` for screen-space
+rectangles and `Scene.draw_world_rect(x, y, width, height, color)` for
+world-space rectangles.  `draw_world_rect` auto-applies
+`camera.world_to_screen()` — no private `_backend` access or manual
+coordinate conversion needed.  Both accept an optional `opacity` kwarg.
+
+```python
+# Instead of:
+backend = self.game._backend
+sx, sy = self.camera.world_to_screen(esp._x, esp._y)
+backend.draw_rect(int(sx - w/2), int(sy + offset), w, h, bg_color)
+backend.draw_rect(int(sx - w/2), int(sy + offset), fill_w, h, fill_color)
+
+# Now:
+self.draw_world_rect(esp._x - w/2, esp._y + offset, w, h, bg_color)
+self.draw_world_rect(esp._x - w/2, esp._y + offset, fill_w, h, fill_color)
+```
 
 ---
 
-## 11. Audio play_sound requires try/except for missing assets — OPEN
+## 11. Audio play_sound requires try/except for missing assets — RESOLVED
 
 ### The awkward code
 
-Every audio call in ch6 is wrapped in try/except:
+Every audio call in ch6 was wrapped in try/except:
 
 ```python
 def _play_sfx(game, name):
@@ -502,7 +519,7 @@ def _play_sfx(game, name):
         pass
 ```
 
-This is because `AssetManager.sound()` raises `AssetNotFoundError` if
+This was because `AssetManager.sound()` raises `AssetNotFoundError` if
 the WAV file doesn't exist, and during development or CI, audio assets
 may not be present.
 
@@ -512,11 +529,16 @@ It's common for games to have optional audio — running silently when
 assets are missing is a reasonable default during development.  Every
 audio call needing a try/except wrapper adds noise and fragility.
 
-### Suggested fix
+### Fix
 
-An `AudioManager.play_sound(name, optional=True)` parameter, or a
-global `audio.lenient = True` mode that silently skips missing assets
-instead of raising.
+Added `optional=True` parameter to `AudioManager.play_sound()` and
+`play_music()`. When `optional=True`, missing assets are silently
+skipped instead of raising.
+
+```python
+game.audio.play_sound("sfx_shoot", optional=True)
+game.audio.play_music("bgm_game", optional=True)
+```
 
 ---
 
@@ -531,7 +553,7 @@ instead of raising.
 | 5 | Arrow-key scrolling boilerplate | RESOLVED — `Camera.enable_key_scroll()` |
 | 6 | Label styling verbosity | RESOLVED — `font_size`/`text_color` kwargs |
 | 7 | Manual screen-to-world conversion | RESOLVED — `event.world_x`/`event.world_y` |
-| 8 | Timer cleanup is manual and error-prone | OPEN — suggest `Scene.after()` with auto-cancel |
-| 9 | Action re-entrancy: Sequence + Do + sprite.do() | OPEN — document or fix deferred Do |
-| 10 | Health bars require raw backend calls | OPEN — suggest world-space draw or sprite overlays |
-| 11 | Audio requires try/except for missing assets | OPEN — suggest lenient/optional mode |
+| 8 | Timer cleanup is manual and error-prone | RESOLVED — `Scene.after()`/`Scene.every()` + auto-cancel |
+| 9 | Action re-entrancy: Sequence + Do + sprite.do() | KNOWN LIMITATION — use `move_to(..., on_arrive=)` |
+| 10 | Health bars require raw backend calls | RESOLVED — `Scene.draw_rect()`/`Scene.draw_world_rect()` |
+| 11 | Audio requires try/except for missing assets | RESOLVED — `play_sound(..., optional=True)` |
