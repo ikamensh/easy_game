@@ -63,6 +63,29 @@ def _estimate_text_width(text: str, font_size: int) -> int:
 # Label
 # ---------------------------------------------------------------------------
 
+def _merge_label_style(
+    style: Style | None,
+    font_size: int | None,
+    text_color: tuple[int, int, int, int] | None,
+    font: str | None,
+) -> Style | None:
+    """Merge convenience kwargs with explicit Style. Explicit style wins for overlapping fields."""
+    base = style or Style()
+    if font_size is None and text_color is None and font is None:
+        return style
+    return Style(
+        font=base.font if base.font is not None else font,
+        font_size=base.font_size if base.font_size is not None else font_size,
+        text_color=base.text_color if base.text_color is not None else text_color,
+        background_color=base.background_color,
+        padding=base.padding,
+        border_color=base.border_color,
+        border_width=base.border_width,
+        hover_color=base.hover_color,
+        press_color=base.press_color,
+    )
+
+
 class Label(Component):
     """Static text display.
 
@@ -71,21 +94,29 @@ class Label(Component):
     ``width``/``height`` is given.
 
     Parameters:
-        text:  The text string to display.
-        style: Explicit :class:`Style` overrides, or ``None`` to inherit
-               from the theme.
-        **kwargs: Forwarded to :class:`Component` (``width``, ``height``,
-                  ``anchor``, ``margin``, ``visible``, ``enabled``).
+        text:       The text string to display.
+        font_size:  Convenience override for font size (avoids wrapping in Style).
+        text_color: Convenience override for text color, e.g. ``(255, 255, 255, 255)``.
+        font:       Convenience override for font family.
+        style:      Explicit :class:`Style` overrides. When both style and
+                    convenience kwargs are provided, explicit style wins for
+                    overlapping fields.
+        **kwargs:   Forwarded to :class:`Component` (``width``, ``height``,
+                    ``anchor``, ``margin``, ``visible``, ``enabled``).
     """
 
     def __init__(
         self,
         text: str,
         *,
+        font_size: int | None = None,
+        text_color: tuple[int, int, int, int] | None = None,
+        font: str | None = None,
         style: Style | None = None,
         **kwargs: Any,
     ) -> None:
-        super().__init__(style=style, **kwargs)
+        merged = _merge_label_style(style, font_size, text_color, font)
+        super().__init__(style=merged, **kwargs)
         self._text = text
         self._font_handle: Any = None
 
@@ -284,7 +315,8 @@ class Button(Component):
         """Draw background rectangle then centered text."""
         if self._game is None:
             return
-        resolved = self._resolve_style(self._state)
+        state = "disabled" if not self.enabled else self._state
+        resolved = self._resolve_style(state)
 
         # Background rect.
         self._game._backend.draw_rect(

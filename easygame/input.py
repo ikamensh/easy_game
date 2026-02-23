@@ -18,7 +18,7 @@ cancel, directional) and supports rebinding at runtime.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from easygame.backends.base import Event, KeyEvent, MouseEvent
 
@@ -44,6 +44,7 @@ class InputEvent:
         button: "left" | "right" | "middle" | None
         dx, dy: drag/scroll deltas
         action: None (mouse events don't map to actions)
+        world_x, world_y: camera-transformed coordinates (auto-populated)
 
     Attributes:
         type:     Event type string.
@@ -54,6 +55,12 @@ class InputEvent:
         button:   Mouse button name, or ``None``.
         dx:       Horizontal delta (drag/scroll).
         dy:       Vertical delta (drag/scroll).
+        world_x:  Camera-transformed x coordinate, or ``None`` for non-mouse
+                  events.  Populated automatically by the framework before
+                  the event reaches :meth:`Scene.handle_input`.  When the
+                  scene has a camera, equals ``camera.screen_to_world(x, y)[0]``.
+                  When there is no camera, equals ``x``.
+        world_y:  Camera-transformed y coordinate (see *world_x*).
     """
 
     type: str
@@ -64,6 +71,37 @@ class InputEvent:
     button: str | None = None
     dx: int = 0
     dy: int = 0
+    world_x: float | None = None
+    world_y: float | None = None
+
+
+# Mouse event types that carry meaningful coordinates.
+_MOUSE_EVENT_TYPES = frozenset({"click", "release", "move", "drag", "scroll"})
+
+
+def _with_world_coords(
+    event: InputEvent,
+    camera: object | None,
+) -> InputEvent:
+    """Return *event* with ``world_x``/``world_y`` populated.
+
+    * **Mouse events** — if *camera* is not ``None``, world coordinates are
+      computed via ``camera.screen_to_world(event.x, event.y)``.  If *camera*
+      is ``None`` (UI-only scene), world coordinates equal screen coordinates.
+    * **Non-mouse events** — returned unchanged (``world_x``/``world_y`` stay
+      ``None``).
+
+    This is called by :meth:`Game.tick` before dispatching to scenes so that
+    game code never needs to call ``camera.screen_to_world`` manually.
+    """
+    if event.type not in _MOUSE_EVENT_TYPES:
+        return event
+    if camera is not None:
+        wx, wy = camera.screen_to_world(event.x, event.y)
+    else:
+        wx = float(event.x)
+        wy = float(event.y)
+    return replace(event, world_x=wx, world_y=wy)
 
 
 # ---------------------------------------------------------------------------

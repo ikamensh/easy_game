@@ -56,7 +56,6 @@ if not _asset_dir.exists() or not (_asset_dir / "images").exists():
 # ---------------------------------------------------------------------------
 from easygame import (  # noqa: E402
     Anchor,
-    AssetManager,
     Button,
     Camera,
     Game,
@@ -211,25 +210,18 @@ class TitleScene(Scene):
     *   We use ``push`` (not ``replace``) so ESC in GameScene pops back here.
     """
 
-    def on_enter(self) -> None:
-        backend = self.game.backend
-        bg_image = backend.create_solid_color_image(
-            BG_COLOR[0], BG_COLOR[1], BG_COLOR[2], BG_COLOR[3],
-            SCREEN_W, SCREEN_H,
-        )
-        self._bg_sprite_id = backend.create_sprite(
-            bg_image,
-            RenderLayer.BACKGROUND.value * 100_000,
-        )
-        backend.update_sprite(self._bg_sprite_id, 0, 0)
+    background_color = BG_COLOR
 
+    def on_enter(self) -> None:
         title_label = Label(
             "Tower Defense",
-            style=Style(font_size=48, text_color=TITLE_COLOR),
+            font_size=48,
+            text_color=TITLE_COLOR,
         )
         subtitle_label = Label(
             "Chapter 2 — Game Map",
-            style=Style(font_size=18, text_color=SUBTITLE_COLOR),
+            font_size=18,
+            text_color=SUBTITLE_COLOR,
         )
         play_button = Button("Play", on_click=self._on_play_clicked)
         quit_button = Button("Quit", on_click=self._on_quit_clicked)
@@ -269,11 +261,6 @@ class TitleScene(Scene):
             return True
         return False
 
-    def on_exit(self) -> None:
-        if self._bg_sprite_id is not None:
-            self.game.backend.remove_sprite(self._bg_sprite_id)
-            self._bg_sprite_id = None
-
 
 # ======================================================================
 # GameScene — tile map + camera + HUD
@@ -299,14 +286,6 @@ class GameScene(Scene):
 
     def on_enter(self) -> None:
         """Set up camera, render the tile map, and build the HUD."""
-        # Track all tile sprites so we can clean them up in on_exit().
-        self._tile_sprites: list[Sprite] = []
-        self._slot_sprites: list[Sprite] = []
-
-        # Track camera scroll direction from held keys.
-        self._scroll_dx: float = 0.0
-        self._scroll_dy: float = 0.0
-
         # Game state (placeholders for future chapters).
         self._wave = 1
         self._gold = 100
@@ -332,8 +311,8 @@ class GameScene(Scene):
             (SCREEN_W, SCREEN_H),
             world_bounds=(0, 0, MAP_WIDTH_PX, MAP_HEIGHT_PX),
         )
-        # Start with the camera centered on the map.
         self.camera.center_on(MAP_WIDTH_PX / 2, MAP_HEIGHT_PX / 2)
+        self.camera.enable_key_scroll(speed=CAMERA_SCROLL_SPEED)
 
         # -----------------------------------------------------------------
         # 2. Render the tile map
@@ -403,7 +382,7 @@ class GameScene(Scene):
                     anchor=SpriteAnchor.TOP_LEFT,
                     layer=RenderLayer.BACKGROUND,
                 )
-                self._tile_sprites.append(sprite)
+                self.add_sprite(sprite)
 
     # ------------------------------------------------------------------
     # Tower slot markers
@@ -421,7 +400,7 @@ class GameScene(Scene):
                 anchor=SpriteAnchor.TOP_LEFT,
                 layer=RenderLayer.OBJECTS,
             )
-            self._slot_sprites.append(sprite)
+            self.add_sprite(sprite)
 
     # ------------------------------------------------------------------
     # HUD
@@ -437,19 +416,22 @@ class GameScene(Scene):
         # Wave label — top left
         self._wave_label = Label(
             f"Wave: {self._wave}",
-            style=Style(font_size=20, text_color=HUD_TEXT_COLOR),
+            font_size=20,
+            text_color=HUD_TEXT_COLOR,
         )
 
         # Gold label — shows current gold with a gold tint
         self._gold_label = Label(
             f"Gold: {self._gold}",
-            style=Style(font_size=20, text_color=GOLD_COLOR),
+            font_size=20,
+            text_color=GOLD_COLOR,
         )
 
         # Hint label — reminds the player of controls
         hint_label = Label(
             "Arrow keys: scroll | ESC: menu",
-            style=Style(font_size=14, text_color=(140, 140, 150, 255)),
+            font_size=14,
+            text_color=(140, 140, 150, 255),
         )
 
         # Top bar panel — horizontal layout, anchored to top of screen.
@@ -476,94 +458,15 @@ class GameScene(Scene):
     # ------------------------------------------------------------------
 
     def handle_input(self, event: InputEvent) -> bool:
-        """Handle keyboard input for camera scrolling and scene navigation.
+        """Handle keyboard input for scene navigation.
 
-        EasyGame translates arrow keys into directional actions:
-        ``"up"``, ``"down"``, ``"left"``, ``"right"``.
-
-        We track which directions are held and apply smooth scrolling
-        in ``update()``.
+        Arrow-key scrolling is handled by :meth:`Camera.enable_key_scroll` —
+        we only need to handle Escape here.
         """
-        # Escape → pop back to title screen.
         if event.action == "cancel":
             self.game.pop()
             return True
-
-        # -----------------------------------------------------------------
-        # Arrow key scrolling — track held directions.
-        #
-        # ``key_press`` starts scrolling, ``key_release`` stops it.
-        # We accumulate dx/dy so diagonal scrolling works when two
-        # keys are held simultaneously.
-        # -----------------------------------------------------------------
-        speed = CAMERA_SCROLL_SPEED
-
-        if event.type == "key_press":
-            if event.action == "left":
-                self._scroll_dx = -speed
-                return True
-            elif event.action == "right":
-                self._scroll_dx = speed
-                return True
-            elif event.action == "up":
-                self._scroll_dy = -speed
-                return True
-            elif event.action == "down":
-                self._scroll_dy = speed
-                return True
-
-        if event.type == "key_release":
-            if event.action in ("left", "right"):
-                self._scroll_dx = 0.0
-                return True
-            elif event.action in ("up", "down"):
-                self._scroll_dy = 0.0
-                return True
-
         return False
-
-    # ------------------------------------------------------------------
-    # Per-frame update
-    # ------------------------------------------------------------------
-
-    def update(self, dt: float) -> None:
-        """Apply camera scrolling each frame.
-
-        ``update()`` is called once per frame with *dt* = seconds since
-        last frame (typically ~0.016 for 60 fps).
-
-        The Camera's ``scroll()`` method moves it by a pixel offset and
-        automatically clamps to world bounds — so we can't scroll past
-        the map edges.
-        """
-        if self._scroll_dx != 0.0 or self._scroll_dy != 0.0:
-            self.camera.scroll(
-                self._scroll_dx * dt,
-                self._scroll_dy * dt,
-            )
-
-    # ------------------------------------------------------------------
-    # Cleanup
-    # ------------------------------------------------------------------
-
-    def on_exit(self) -> None:
-        """Remove all tile sprites when leaving the scene.
-
-        Every :class:`Sprite` must be explicitly removed — they live in
-        the backend's render batch, not in the scene.  Forgetting to
-        remove them would cause visual ghosts.
-        """
-        for sprite in self._tile_sprites:
-            sprite.remove()
-        self._tile_sprites.clear()
-
-        for sprite in self._slot_sprites:
-            sprite.remove()
-        self._slot_sprites.clear()
-
-        # Reset scroll state so it doesn't persist if we re-enter.
-        self._scroll_dx = 0.0
-        self._scroll_dy = 0.0
 
 
 # ======================================================================
@@ -573,19 +476,15 @@ class GameScene(Scene):
 def main() -> None:
     """Create the Game and run with the title screen.
 
-    Same setup pattern as Chapter 1 — create Game, set up AssetManager
-    and Theme, then ``game.run(TitleScene())``.
+    Same setup pattern as Chapter 1 — create Game with asset_path,
+    customise Theme, then ``game.run(TitleScene())``.
     """
     game = Game(
         "Tower Defense — Chapter 2",
         resolution=(SCREEN_W, SCREEN_H),
         fullscreen=False,
         backend="pyglet",
-    )
-
-    game.assets = AssetManager(
-        game.backend,
-        base_path=_asset_dir,
+        asset_path=_asset_dir,
     )
 
     game.theme = Theme(

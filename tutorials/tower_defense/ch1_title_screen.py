@@ -54,7 +54,6 @@ if not _asset_dir.exists():
 # ---------------------------------------------------------------------------
 from easygame import (  # noqa: E402
     Anchor,        # Where a UI component sits within its parent
-    AssetManager,  # Loads images/sounds from a base directory
     Button,        # Clickable button with hover/press states
     Game,          # Top-level object: owns the window, scene stack, and loop
     InputEvent,    # Unified input (keyboard/mouse) event
@@ -103,6 +102,8 @@ class TitleScene(Scene):
     ``handle_input`` for keyboard shortcuts.
     """
 
+    background_color = BG_COLOR  # Framework clears screen with this before drawing
+
     def on_enter(self) -> None:
         """Build the title-screen UI when this scene becomes active.
 
@@ -110,27 +111,7 @@ class TitleScene(Scene):
         just before calling ``on_enter()``.
         """
         # -----------------------------------------------------------------
-        # 1. Create a solid-colour background that fills the screen.
-        #
-        #    We use the backend's low-level API to create a coloured image
-        #    and place it behind everything.  This is the simplest way to
-        #    set a background colour — no PNG file needed.
-        # -----------------------------------------------------------------
-        backend = self.game.backend
-        bg_image = backend.create_solid_color_image(
-            BG_COLOR[0], BG_COLOR[1], BG_COLOR[2], BG_COLOR[3],
-            SCREEN_W, SCREEN_H,
-        )
-        from easygame import RenderLayer
-
-        self._bg_sprite_id = backend.create_sprite(
-            bg_image,
-            RenderLayer.BACKGROUND.value * 100_000,
-        )
-        backend.update_sprite(self._bg_sprite_id, 0, 0)
-
-        # -----------------------------------------------------------------
-        # 2. Build the UI tree.
+        # 1. Build the UI tree.
         #
         #    EasyGame's UI is a tree of Components.  Every Scene has a
         #    ``self.ui`` root that covers the full logical screen.  You add
@@ -143,26 +124,24 @@ class TitleScene(Scene):
         #               ├── subtitle_label ("A step-by-step tutorial")
         #               ├── play_button    ("Play")
         #               └── quit_button    ("Quit")
+        #
+        #    The background colour is set via ``background_color`` above —
+        #    the framework clears the screen with it automatically.
         # -----------------------------------------------------------------
 
         # --- Title label ---
-        # Style overrides let you customise individual components without
-        # changing the global Theme.  Here we make the title bigger and gold.
+        # Convenience kwargs (font_size, text_color) avoid wrapping in Style.
         title_label = Label(
             "Tower Defense",
-            style=Style(
-                font_size=48,
-                text_color=TITLE_COLOR,
-            ),
+            font_size=48,
+            text_color=TITLE_COLOR,
         )
 
         # --- Subtitle label ---
         subtitle_label = Label(
             "A step-by-step tutorial",
-            style=Style(
-                font_size=18,
-                text_color=SUBTITLE_COLOR,
-            ),
+            font_size=18,
+            text_color=SUBTITLE_COLOR,
         )
 
         # --- Play button ---
@@ -251,20 +230,8 @@ class TitleScene(Scene):
 
         return False  # not consumed — let other handlers see it
 
-    # ------------------------------------------------------------------
-    # Cleanup
-    # ------------------------------------------------------------------
-
-    def on_exit(self) -> None:
-        """Remove the background when leaving this scene.
-
-        The UI tree is cleaned up automatically by the framework, but
-        backend-level resources (like our manually created background
-        sprite) need explicit removal.
-        """
-        if self._bg_sprite_id is not None:
-            self.game.backend.remove_sprite(self._bg_sprite_id)
-            self._bg_sprite_id = None
+    # No on_exit needed — we don't create any backend resources manually.
+    # The UI tree and background are handled by the framework.
 
 
 # ======================================================================
@@ -276,37 +243,24 @@ def main() -> None:
 
     This is the minimal EasyGame setup:
 
-    1. Create a :class:`Game` with a title and resolution.
-    2. Point the :class:`AssetManager` at your assets/ directory.
-    3. (Optional) Customise the :class:`Theme` for your game's look.
-    4. Call ``game.run(StartScene())`` — this enters the main loop.
+    1. Create a :class:`Game` with a title, resolution, and asset path.
+    2. (Optional) Customise the :class:`Theme` for your game's look.
+    3. Call ``game.run(StartScene())`` — this enters the main loop.
     """
 
     # --- Step 1: Create the Game -----------------------------------------
-    # ``fullscreen=False`` opens a resizable window instead of going
-    # fullscreen — much more convenient during development.
-    # ``backend="pyglet"`` uses the pyglet GPU-accelerated backend.
+    # ``asset_path`` points at our assets/ directory — Chapter 2 will load
+    # tower/enemy sprites from here.  ``fullscreen=False`` opens a resizable
+    # window; ``backend="pyglet"`` uses the GPU-accelerated backend.
     game = Game(
         "Tower Defense — Chapter 1",
         resolution=(SCREEN_W, SCREEN_H),
         fullscreen=False,
         backend="pyglet",
+        asset_path=_asset_dir,
     )
 
-    # --- Step 2: Point assets at our local directory ---------------------
-    # AssetManager resolves image names relative to this base path.
-    # For example, ``"sprites/tower_basic"`` loads
-    # ``tutorials/tower_defense/assets/images/sprites/tower_basic.png``.
-    #
-    # We don't load any images in this chapter (the UI uses backend
-    # drawing primitives), but setting this up now means Chapter 2 can
-    # load tower/enemy sprites without extra setup.
-    game.assets = AssetManager(
-        game.backend,
-        base_path=_asset_dir,
-    )
-
-    # --- Step 3: Customise the Theme (optional) --------------------------
+    # --- Step 2: Customise the Theme (optional) --------------------------
     # The Theme controls default colours, fonts, and sizes for all UI
     # components.  Components inherit from the theme unless overridden
     # by an explicit Style.
@@ -330,7 +284,7 @@ def main() -> None:
         button_min_width=220,
     )
 
-    # --- Step 4: Run! ----------------------------------------------------
+    # --- Step 3: Run! ----------------------------------------------------
     # ``game.run()`` pushes the TitleScene onto the scene stack, enters
     # the main loop, and blocks until ``game.quit()`` is called.
     # After the loop exits it tears down the backend (closes the window).

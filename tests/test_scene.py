@@ -331,3 +331,82 @@ def test_scene_handle_input_default_returns_false():
     s = Scene()
     event = InputEvent(type="key_press", key="space")
     assert s.handle_input(event) is False
+
+
+# ---------------------------------------------------------------------------
+# background_color — framework clears screen before drawing
+# ---------------------------------------------------------------------------
+
+
+def test_background_color_none_passes_no_clear_color(mock_game, mock_backend):
+    """Scene without background_color: begin_frame receives clear_color=None."""
+    class PlainScene(Scene):
+        pass
+
+    mock_game.push(PlainScene())
+    mock_game.tick(dt=0.016)
+
+    assert mock_backend.clear_color is None
+
+
+def test_background_color_rgb_passes_clear_color(mock_game, mock_backend):
+    """Scene with background_color=(R,G,B): begin_frame receives it (alpha=255 implied)."""
+    class GreenScene(Scene):
+        background_color = (34, 139, 34)
+
+    mock_game.push(GreenScene())
+    mock_game.tick(dt=0.016)
+
+    assert mock_backend.clear_color == (34, 139, 34)
+
+
+def test_background_color_rgba_passes_clear_color(mock_game, mock_backend):
+    """Scene with background_color=(R,G,B,A): begin_frame receives full tuple."""
+    class SemiTransparentScene(Scene):
+        background_color = (25, 30, 40, 200)
+
+    mock_game.push(SemiTransparentScene())
+    mock_game.tick(dt=0.016)
+
+    assert mock_backend.clear_color == (25, 30, 40, 200)
+
+
+def test_background_color_uses_base_scene_when_transparent_overlay(mock_game, mock_backend):
+    """When top scene is transparent, base (opaque) scene's background_color is used."""
+    class BaseScene(Scene):
+        background_color = (100, 50, 25, 255)
+
+    class OverlayScene(Scene):
+        transparent = True
+        background_color = (0, 0, 0, 255)  # ignored — we use base's
+
+    mock_game.push(BaseScene())
+    mock_game.push(OverlayScene())
+    mock_game.tick(dt=0.016)
+
+    # Base scene is the opaque one; its background_color wins.
+    assert mock_backend.clear_color == (100, 50, 25, 255)
+
+
+def test_get_base_scene_empty_returns_none():
+    """get_base_scene() on empty stack returns None."""
+    from easygame.scene import SceneStack
+
+    class FakeGame:
+        _hud = None
+
+    stack = SceneStack(FakeGame())
+    assert stack.get_base_scene() is None
+
+
+def test_get_base_scene_single_returns_it():
+    """get_base_scene() with one scene returns that scene."""
+    from easygame.scene import SceneStack
+
+    class FakeGame:
+        _hud = None
+
+    stack = SceneStack(FakeGame())
+    s = TrackingScene("S")
+    stack.push(s)
+    assert stack.get_base_scene() is s

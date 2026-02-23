@@ -57,6 +57,12 @@ class TestTheme:
         r = t.resolve_button_style(None, "pressed")
         assert r.background_color == (50, 50, 70, 255)
 
+    def test_resolve_button_style_state_disabled(self) -> None:
+        t = Theme()
+        r = t.resolve_button_style(None, "disabled")
+        assert r.background_color == (40, 42, 55, 200)
+        assert r.text_color == (100, 100, 110, 200)
+
     def test_resolve_button_style_explicit_hover_overrides_state(self) -> None:
         t = Theme()
         custom = Style(hover_color=(200, 0, 0, 255))

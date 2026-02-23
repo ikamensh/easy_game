@@ -73,7 +73,9 @@ class Theme:
         button_background_color: Color = (70, 70, 90, 255),
         button_hover_color: Color = (100, 100, 130, 255),
         button_press_color: Color = (50, 50, 70, 255),
+        button_disabled_color: Color = (40, 42, 55, 200),
         button_text_color: Color = (220, 220, 220, 255),
+        button_disabled_text_color: Color = (100, 100, 110, 200),
         button_padding: int = 12,
         button_font_size: int = 24,
         button_min_width: int = 200,
@@ -115,7 +117,9 @@ class Theme:
         self._button_background_color = button_background_color
         self._button_hover_color = button_hover_color
         self._button_press_color = button_press_color
+        self._button_disabled_color = button_disabled_color
         self._button_text_color = button_text_color
+        self._button_disabled_text_color = button_disabled_text_color
         self._button_padding = button_padding
         self._button_font_size = button_font_size
         self._button_min_width = button_min_width
@@ -158,20 +162,26 @@ class Theme:
     def resolve_button_style(
         self,
         explicit: Style | None,
-        state: Literal["normal", "hovered", "pressed"] = "normal",
+        state: Literal["normal", "hovered", "pressed", "disabled"] = "normal",
     ) -> ResolvedStyle:
         """Merge explicit style with button defaults, considering state."""
         e = explicit or Style()
-        if state == "hovered":
+        if state == "disabled":
+            bg = _pick(e.background_color, self._button_disabled_color)
+            text = _pick(e.text_color, self._button_disabled_text_color)
+        elif state == "hovered":
             bg = _pick(e.hover_color, self._button_hover_color)
+            text = _pick(e.text_color, self._button_text_color)
         elif state == "pressed":
             bg = _pick(e.press_color, self._button_press_color)
+            text = _pick(e.text_color, self._button_text_color)
         else:
             bg = _pick(e.background_color, self._button_background_color)
+            text = _pick(e.text_color, self._button_text_color)
         return ResolvedStyle(
             font=_pick(e.font, self._font),
             font_size=_pick(e.font_size, self._button_font_size),
-            text_color=_pick(e.text_color, self._button_text_color),
+            text_color=text,
             background_color=bg,
             padding=_pick(e.padding, self._button_padding),
             border_color=_pick(e.border_color, self._panel_border_color),

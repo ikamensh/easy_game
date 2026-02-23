@@ -57,6 +57,11 @@ class Camera:
         self._edge_margin: int = 0
         self._edge_speed: float = 0.0
 
+        # Key scroll (arrow keys).
+        self._key_scroll_enabled: bool = False
+        self._key_scroll_speed: float = 0.0
+        self._held_dirs: set[str] = set()  # "left", "right", "up", "down"
+
         # Pan-to tween ids (so we can cancel on follow / center_on / scroll).
         self._pan_tween_x: int | None = None
         self._pan_tween_y: int | None = None
@@ -147,6 +152,46 @@ class Camera:
         self._edge_scroll_enabled = False
 
     # ------------------------------------------------------------------
+    # Key scroll
+    # ------------------------------------------------------------------
+
+    def enable_key_scroll(self, speed: float = 300) -> None:
+        """Enable arrow-key scrolling.
+
+        When arrow keys are held, the camera scrolls at *speed* pixels per
+        second.  Tracks key_press/key_release internally; call
+        :meth:`handle_input` from the game loop (the framework does this
+        automatically when the scene has a camera).
+        """
+        self._key_scroll_enabled = True
+        self._key_scroll_speed = speed
+
+    def disable_key_scroll(self) -> None:
+        """Disable arrow-key scrolling."""
+        self._key_scroll_enabled = False
+        self._held_dirs.clear()
+
+    def handle_input(self, event: Any) -> bool:
+        """Process directional key events for key scroll.
+
+        Called by :meth:`Game.tick` before scene dispatch when the scene
+        has a camera.  Returns ``True`` if the event was consumed (a
+        directional key_press/key_release), ``False`` otherwise.
+        """
+        if not self._key_scroll_enabled:
+            return False
+        if event.type not in ("key_press", "key_release"):
+            return False
+        action = getattr(event, "action", None)
+        if action not in ("left", "right", "up", "down"):
+            return False
+        if event.type == "key_press":
+            self._held_dirs.add(action)
+        else:
+            self._held_dirs.discard(action)
+        return True
+
+    # ------------------------------------------------------------------
     # Coordinate conversion
     # ------------------------------------------------------------------
 
@@ -230,6 +275,7 @@ class Camera:
         Handles:
         1. Follow tracking — center on the followed sprite.
         2. Edge scroll — scroll when the mouse is near a viewport edge.
+        3. Key scroll — scroll when arrow keys are held.
 
         Parameters:
             dt:      Delta time in seconds.
@@ -268,6 +314,20 @@ class Camera:
             elif mouse_y > self._vh - margin:
                 scroll_dy = speed * dt
 
+            if scroll_dx != 0.0 or scroll_dy != 0.0:
+                self._x += scroll_dx
+                self._y += scroll_dy
+                self._clamp()
+
+        # 3. Key scroll.
+        if self._key_scroll_enabled and self._held_dirs:
+            speed = self._key_scroll_speed * dt
+            scroll_dx = (-speed if "left" in self._held_dirs else 0) + (
+                speed if "right" in self._held_dirs else 0
+            )
+            scroll_dy = (-speed if "up" in self._held_dirs else 0) + (
+                speed if "down" in self._held_dirs else 0
+            )
             if scroll_dx != 0.0 or scroll_dy != 0.0:
                 self._x += scroll_dx
                 self._y += scroll_dy

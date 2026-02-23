@@ -206,6 +206,25 @@ def test_frames_missing_prefix_raises(
 # Game.assets integration
 # ------------------------------------------------------------------
 
+def test_game_asset_path_parameter_uses_custom_path(
+    asset_dir: Path,
+) -> None:
+    """Game(asset_path=...) creates AssetManager with that base path."""
+    from easygame import Game
+
+    game = Game(
+        "Test",
+        backend="mock",
+        resolution=(800, 600),
+        asset_path=asset_dir,
+    )
+    handle = game.assets.image("sprites/knight")
+
+    assert handle is not None
+    expected_path = str(asset_dir / "images" / "sprites" / "knight.png")
+    assert expected_path in game.backend._loaded_images
+
+
 def test_game_assets_property_creates_manager() -> None:
     """Game.assets lazily creates an AssetManager."""
     from easygame import Game
@@ -226,10 +245,15 @@ def test_game_assets_is_same_instance() -> None:
 
 
 def test_game_assets_can_be_overridden() -> None:
-    """game.assets can be set to a custom AssetManager."""
+    """game.assets can be set to a custom AssetManager (overrides asset_path)."""
     from easygame import Game
 
-    game = Game("Test", backend="mock", resolution=(800, 600))
+    game = Game(
+        "Test",
+        backend="mock",
+        resolution=(800, 600),
+        asset_path="ignored_path",
+    )
     custom = AssetManager(game.backend, base_path=Path("/custom"))
     game.assets = custom
 

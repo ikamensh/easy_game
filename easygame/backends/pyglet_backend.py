@@ -291,9 +291,17 @@ class PygletBackend:
             )
             backend._event_queue.append(WindowEvent(type="resize"))
 
-    def begin_frame(self) -> None:
+    def begin_frame(
+        self,
+        clear_color: tuple[int, ...] | None = None,
+    ) -> None:
         if self.window is None:
             return
+        if clear_color is not None:
+            import pyglet.gl as gl
+            r, g, b = clear_color[0] / 255.0, clear_color[1] / 255.0, clear_color[2] / 255.0
+            a = clear_color[3] / 255.0 if len(clear_color) > 3 else 1.0
+            gl.glClearColor(r, g, b, a)
         self.window.clear()
         # Discard per-frame text labels, rects, and image sprites from the previous frame.
         for label in self._text_labels:

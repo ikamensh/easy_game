@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from easygame.game import Game
     from easygame.input import InputEvent
     from easygame.rendering.camera import Camera
+    from easygame.rendering.sprite import Sprite
     from easygame.ui.component import _UIRoot
 
 
@@ -41,9 +42,65 @@ class Scene:
     show_hud: bool = True
     real_time: bool = True
 
+    # When set to (R,G,B) or (R,G,B,A), the framework clears the screen with
+    # this color before drawing. Values 0–255. Default None = no clear.
+    background_color: tuple[int, ...] | None = None
+
     game: Game
     camera: Camera | None = None
     _ui: _UIRoot | None = None
+
+    # ------------------------------------------------------------------
+    # Sprite ownership
+    # ------------------------------------------------------------------
+
+    def _get_owned_sprites(self) -> set[Sprite]:
+        """Return the owned-sprites set, creating it lazily."""
+        try:
+            return self._owned_sprites  # type: ignore[has-type]
+        except AttributeError:
+            self._owned_sprites: set[Sprite] = set()
+            return self._owned_sprites
+
+    def add_sprite(self, sprite: Sprite) -> Sprite:
+        """Register *sprite* as owned by this scene.
+
+        Owned sprites are automatically removed when the scene exits
+        (after the user's :meth:`on_exit` runs).  Individual early removal
+        via :meth:`Sprite.remove` or :meth:`remove_sprite` still works.
+
+        Returns the sprite for convenient chaining::
+
+            self.knight = self.add_sprite(
+                Sprite("sprites/knight", position=(400, 300))
+            )
+        """
+        if sprite.is_removed:
+            return sprite
+        self._get_owned_sprites().add(sprite)
+        sprite._owning_scene = self
+        return sprite
+
+    def remove_sprite(self, sprite: Sprite) -> None:
+        """Explicitly remove *sprite* from this scene's ownership and destroy it.
+
+        Calls :meth:`Sprite.remove` on the sprite after deregistering it.
+        Safe to call on sprites that are already removed or not owned by
+        this scene.
+        """
+        self._get_owned_sprites().discard(sprite)
+        if not sprite.is_removed:
+            sprite._owning_scene = None
+            sprite.remove()
+
+    def _cleanup_owned_sprites(self) -> None:
+        """Remove all owned sprites.  Called by SceneStack after on_exit()."""
+        owned = self._get_owned_sprites()
+        # Iterate over a copy because Sprite.remove() discards from the set.
+        for sprite in list(owned):
+            if not sprite.is_removed:
+                sprite.remove()
+        owned.clear()
 
     def on_enter(self) -> None:
         """Called when this scene becomes active (top of stack)."""
@@ -126,6 +183,18 @@ class SceneStack:
         """Return the top scene, or None if stack is empty."""
         return self._stack[-1] if self._stack else None
 
+    def get_base_scene(self) -> Scene | None:
+        """Return the lowest visible scene (opaque or bottom of transparent chain).
+
+        Used to determine which scene's background_color to apply when clearing.
+        """
+        if not self._stack:
+            return None
+        start = len(self._stack) - 1
+        while start > 0 and self._stack[start].transparent:
+            start -= 1
+        return self._stack[start]
+
     def push(self, scene: Scene) -> None:
         """Push scene on top. Current top gets on_exit, new scene gets on_enter."""
         if self._in_tick:
@@ -175,7 +244,9 @@ class SceneStack:
 
     def _apply_push(self, scene: Scene) -> None:
         if self._stack:
-            self._stack[-1].on_exit()
+            old = self._stack[-1]
+            old.on_exit()
+            old._cleanup_owned_sprites()
         scene.game = self._game
         self._stack.append(scene)
         scene.on_enter()
@@ -183,14 +254,18 @@ class SceneStack:
     def _apply_pop(self) -> None:
         if not self._stack:
             return
-        self._stack[-1].on_exit()
+        old = self._stack[-1]
+        old.on_exit()
+        old._cleanup_owned_sprites()
         self._stack.pop()
         if self._stack:
             self._stack[-1].on_reveal()
 
     def _apply_replace(self, scene: Scene) -> None:
         if self._stack:
-            self._stack[-1].on_exit()
+            old = self._stack[-1]
+            old.on_exit()
+            old._cleanup_owned_sprites()
             self._stack.pop()
         scene.game = self._game
         self._stack.append(scene)
@@ -199,6 +274,7 @@ class SceneStack:
     def _apply_clear_and_push(self, scene: Scene) -> None:
         for s in reversed(self._stack):
             s.on_exit()
+            s._cleanup_owned_sprites()
         self._stack.clear()
         scene.game = self._game
         self._stack.append(scene)

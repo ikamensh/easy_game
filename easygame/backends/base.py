@@ -137,11 +137,17 @@ class Backend(Protocol):
         """
         ...
 
-    def begin_frame(self) -> None:
+    def begin_frame(
+        self,
+        clear_color: tuple[int, ...] | None = None,
+    ) -> None:
         """Begin a new frame.
 
         Called once per tick before any draw calls.  GPU backends use this to
         clear the backbuffer; the mock backend resets per-frame state.
+
+        If *clear_color* is provided as (R,G,B) or (R,G,B,A) (0–255), the
+        screen is cleared with that color before drawing.
         """
         ...
 

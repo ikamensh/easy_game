@@ -3,11 +3,11 @@
 This document records concrete friction points discovered while building
 `ch1_title_screen.py`, `ch2_game_map.py`, and `ch3_tower_placement.py`
 against the EasyGame framework.  Each entry includes the awkward code,
-why it hurts, and a proposed fix.
+why it hurts, and the fix that was applied.
 
 ---
 
-## 1. Scene background color requires raw backend calls
+## 1. Scene background color requires raw backend calls — RESOLVED
 
 ### The awkward code
 
@@ -45,23 +45,20 @@ knowing the `layer.value * 100_000` ordering formula.  A first-time user
 shouldn't need to understand render layer arithmetic just to set a
 background color.
 
-### Proposed fix
+### Fix
 
-Add a `background_color` class attribute (or `on_enter` parameter) to
-`Scene` that the framework handles automatically:
+Added `background_color` class attribute to `Scene`. The framework
+clears the screen with this color in `begin_frame` before drawing.
+No sprite creation or cleanup needed.
 
 ```python
 class TitleScene(Scene):
-    background_color = (25, 30, 40, 255)  # handled by framework
+    background_color = (25, 30, 40, 255)
 ```
-
-The `SceneStack` would create and destroy the background sprite around
-the `on_enter`/`on_exit` lifecycle, so game code never touches the
-backend directly for this.
 
 ---
 
-## 2. Manual sprite cleanup is error-prone and tedious
+## 2. Manual sprite cleanup is error-prone and tedious — RESOLVED
 
 ### The awkward code
 
@@ -103,27 +100,20 @@ cleanup block grows linearly and each addition is a potential bug.
 The framework knows which sprites exist in the backend batch — the
 game code shouldn't have to mirror that bookkeeping.
 
-### Proposed fix
+### Fix
 
-Add a `Scene.add_sprite()` method (or `Sprite(... scene=self)`) that
-registers the sprite with the scene.  On `on_exit`, the framework
-auto-removes all sprites owned by the scene:
+Added `Scene.add_sprite(sprite)` that registers ownership. The framework
+calls `_cleanup_owned_sprites()` after `on_exit`, auto-removing all owned
+sprites. Direct `Sprite()` creation still works; only sprites passed to
+`add_sprite()` are tracked and cleaned up.
 
 ```python
-# Game code — no manual cleanup needed
-sprite = self.add_sprite("grass", position=(x, y), layer=RenderLayer.BACKGROUND)
-
-# Or: sprites created while a scene is active are auto-owned by it
-sprite = Sprite("grass", position=(x, y))  # implicitly owned by active scene
+sprite = self.add_sprite(Sprite("grass", position=(x, y)))
 ```
-
-The framework could use the existing `Game._all_sprites` set, partitioned
-per scene, to remove sprites when a scene exits.  Individual early removal
-via `sprite.remove()` would still work.
 
 ---
 
-## 3. AssetManager must be constructed separately from Game
+## 3. AssetManager must be constructed separately from Game — RESOLVED
 
 ### The awkward code
 
@@ -155,26 +145,24 @@ The user already told `Game` which backend to use.  Having to fish out
 `game.backend` and pass it to `AssetManager` is a leaky abstraction.
 Most games only need to say "my assets are here".
 
-### Proposed fix
+### Fix
 
-Accept `asset_path` as a `Game` constructor parameter:
+Added `asset_path` parameter to `Game` constructor. Lazy `game.assets`
+uses this path when creating the `AssetManager`. Explicit
+`game.assets = AssetManager(...)` still overrides for custom setups.
 
 ```python
 game = Game(
     "Tower Defense — Chapter 3",
     resolution=(SCREEN_W, SCREEN_H),
-    asset_path=_asset_dir,          # one line instead of three
+    asset_path=_asset_dir,
     backend="pyglet",
 )
 ```
 
-The `Game` would construct the `AssetManager` internally, using its own
-backend reference.  The explicit `game.assets = AssetManager(...)` form
-would still work for advanced use cases (custom scale factor, etc.).
-
 ---
 
-## 4. No visual feedback for disabled buttons
+## 4. No visual feedback for disabled buttons — RESOLVED
 
 ### The awkward code
 
@@ -199,30 +187,15 @@ skip input", but the actual `Button.on_draw()` always resolves the
 `self.enabled`.  The user either gets confusingly invisible feedback or
 must add their own style-swapping logic.
 
-### Proposed fix
+### Fix
 
-The `Button.on_draw()` should respect `self.enabled`.  When disabled,
-resolve a `"disabled"` state that applies lower opacity or a muted color.
-Theme could gain `button_disabled_color` and `button_disabled_text_color`
-fields:
-
-```python
-# In Button.on_draw():
-if not self.enabled:
-    resolved = self._resolve_style("disabled")
-else:
-    resolved = self._resolve_style(self._state)
-```
-
-```python
-# In Theme:
-button_disabled_color=(40, 42, 55, 200),
-button_disabled_text_color=(100, 100, 110, 200),
-```
+`Button` resolves `"disabled"` state when `enabled=False`. Theme provides
+`button_disabled_color` and `button_disabled_text_color` for muted
+appearance. Disabled buttons draw greyed out and skip input.
 
 ---
 
-## 5. Arrow-key scrolling requires manual key_press/key_release tracking
+## 5. Arrow-key scrolling requires manual key_press/key_release tracking — RESOLVED
 
 ### The awkward code
 
@@ -272,27 +245,20 @@ camera will copy-paste this pattern.  The camera already has
 `enable_edge_scroll()` for mouse-based scrolling — keyboard scrolling
 should be just as easy to enable.
 
-### Proposed fix
+### Fix
 
-Add `Camera.enable_key_scroll(speed)` that integrates with the input
-system automatically:
+Added `Camera.enable_key_scroll(speed)`. The camera listens for
+directional actions and applies scrolling in its update step. No
+`_scroll_dx`/`_scroll_dy` state or `handle_input`/`update` overrides
+needed in the scene.
 
 ```python
-self.camera = Camera(
-    (SCREEN_W, SCREEN_H),
-    world_bounds=(0, 0, MAP_WIDTH_PX, MAP_HEIGHT_PX),
-)
-self.camera.enable_key_scroll(speed=200)  # handles press/release/update internally
+self.camera.enable_key_scroll(speed=CAMERA_SCROLL_SPEED)
 ```
-
-The camera already receives updates via the game loop.  It could listen
-for directional actions and apply scrolling in its own update step,
-eliminating the need for `_scroll_dx`/`_scroll_dy` state, the
-`handle_input` dispatch, and the `update` override in the scene.
 
 ---
 
-## 6. Label styling requires a Style object even for just a color change
+## 6. Label styling requires a Style object even for just a color change — RESOLVED
 
 ### The awkward code
 
@@ -328,22 +294,19 @@ object for the two most common overrides (font_size, text_color) makes
 label-heavy UIs verbose.  `Style` is valuable for complex customization,
 but the 90% case is just size and color.
 
-### Proposed fix
+### Fix
 
-Accept `font_size` and `text_color` as direct keyword arguments on
-`Label` (and `Button`), forwarded into `Style` internally:
+`Label` and `Button` accept `font_size` and `text_color` as direct
+kwargs, merged with any explicit `style=Style(...)`. Explicit style
+wins for overlapping fields.
 
 ```python
 Label("Wave: 1", font_size=20, text_color=HUD_TEXT_COLOR)
-Label("Tower Defense", font_size=48, text_color=TITLE_COLOR)
 ```
-
-The explicit `style=Style(...)` form would still work for less common
-fields (padding, background_color, border, etc.).
 
 ---
 
-## 7. screen_to_world conversion is always needed but never automatic for mouse events
+## 7. screen_to_world conversion is always needed but never automatic for mouse events — RESOLVED
 
 ### The awkward code
 
@@ -375,33 +338,28 @@ The conversion is trivial but forgetting it produces subtle bugs — the
 game works until the camera scrolls, then clicks land in wrong positions.
 This is a classic "works in testing, breaks in production" mistake.
 
-### Proposed fix
+### Fix
 
-Add `world_x` / `world_y` properties to `InputEvent` (or to the scene's
-handle_input protocol) that auto-convert when a scene has a camera:
+`InputEvent` has `world_x` and `world_y` fields. The framework populates
+them via `_with_world_coords()` before dispatching to `handle_input`.
+For mouse events with a camera: camera-transformed coords. For non-mouse
+events: `None`.
 
 ```python
-# InputEvent gains world coords (None if no camera)
-def handle_input(self, event: InputEvent) -> bool:
-    if event.type == "click":
-        self._try_place_tower(event.world_x, event.world_y)
+if event.type == "click" and event.world_x is not None and event.world_y is not None:
+    self._try_place_tower(event.world_x, event.world_y)
 ```
-
-The framework already knows the active scene's camera at dispatch time
-(in `Game.tick`).  It could populate `world_x`/`world_y` before
-dispatching to `handle_input`, or `InputEvent` could lazily compute them
-from a camera reference.
 
 ---
 
 ## Summary
 
-| # | Friction | Severity | Fix complexity |
-|---|----------|----------|----------------|
-| 1 | Background color requires backend calls | High | Low — class attr + lifecycle hook |
-| 2 | Manual sprite cleanup in on_exit | High | Medium — scene-owned sprite tracking |
-| 3 | AssetManager constructed separately | Medium | Low — Game constructor parameter |
-| 4 | No visual feedback for disabled buttons | Medium | Low — "disabled" style state |
-| 5 | Arrow-key scrolling boilerplate | Medium | Low — Camera.enable_key_scroll() |
-| 6 | Label styling verbosity | Low | Low — forwarded kwargs |
-| 7 | Manual screen-to-world conversion | Medium | Medium — auto-populated event fields |
+| # | Friction | Status |
+|---|----------|--------|
+| 1 | Background color requires backend calls | RESOLVED — `Scene.background_color` |
+| 2 | Manual sprite cleanup in on_exit | RESOLVED — `Scene.add_sprite()` + auto-cleanup |
+| 3 | AssetManager constructed separately | RESOLVED — `Game(asset_path=...)` |
+| 4 | No visual feedback for disabled buttons | RESOLVED — disabled style state |
+| 5 | Arrow-key scrolling boilerplate | RESOLVED — `Camera.enable_key_scroll()` |
+| 6 | Label styling verbosity | RESOLVED — `font_size`/`text_color` kwargs |
+| 7 | Manual screen-to-world conversion | RESOLVED — `event.world_x`/`event.world_y` |

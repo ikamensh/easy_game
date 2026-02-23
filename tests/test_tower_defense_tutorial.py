@@ -19,7 +19,7 @@ _project_root = Path(__file__).resolve().parents[1]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from easygame import AssetManager, Game, Theme
+from easygame import Game, Theme
 
 
 # ---------------------------------------------------------------------------
@@ -37,8 +37,8 @@ def td_game() -> Game:
         resolution=(960, 540),
         fullscreen=False,
         backend="mock",
+        asset_path=_asset_dir,
     )
-    game.assets = AssetManager(game.backend, base_path=_asset_dir)
     game.theme = Theme(
         font="serif",
         font_size=24,

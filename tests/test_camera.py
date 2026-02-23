@@ -9,6 +9,7 @@ import pytest
 from easygame import Game, Scene, Sprite
 from easygame.assets import AssetManager
 from easygame.backends.mock_backend import MockBackend
+from easygame.input import InputEvent
 from easygame.rendering.camera import Camera
 from easygame.rendering.layers import SpriteAnchor
 
@@ -602,6 +603,157 @@ class TestEdgeScroll:
         game.tick(dt=1.0)
 
         assert scene.camera.x < old_x
+
+
+# ==================================================================
+# 6b. Key scroll
+# ==================================================================
+
+class TestKeyScroll:
+
+    def test_key_scroll_left(self) -> None:
+        """Holding left arrow scrolls camera left."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        old_x = cam.x
+
+        cam.handle_input(InputEvent(type="key_press", key="left", action="left"))
+        cam.update(1.0)
+
+        assert cam.x < old_x
+        assert cam.x == old_x - 100
+
+    def test_key_scroll_right(self) -> None:
+        """Holding right arrow scrolls camera right."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        old_x = cam.x
+
+        cam.handle_input(InputEvent(type="key_press", key="right", action="right"))
+        cam.update(1.0)
+
+        assert cam.x > old_x
+        assert cam.x == old_x + 100
+
+    def test_key_scroll_up(self) -> None:
+        """Holding up arrow scrolls camera up."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        old_y = cam.y
+
+        cam.handle_input(InputEvent(type="key_press", key="up", action="up"))
+        cam.update(1.0)
+
+        assert cam.y < old_y
+        assert cam.y == old_y - 100
+
+    def test_key_scroll_down(self) -> None:
+        """Holding down arrow scrolls camera down."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        old_y = cam.y
+
+        cam.handle_input(InputEvent(type="key_press", key="down", action="down"))
+        cam.update(1.0)
+
+        assert cam.y > old_y
+        assert cam.y == old_y + 100
+
+    def test_key_scroll_release_stops(self) -> None:
+        """Releasing key stops scrolling."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        old_x = cam.x
+
+        cam.handle_input(InputEvent(type="key_press", key="left", action="left"))
+        cam.update(1.0)
+        assert cam.x < old_x
+
+        cam.handle_input(InputEvent(type="key_release", key="left", action="left"))
+        cam.update(1.0)
+        after_release = cam.x
+
+        cam.update(1.0)
+        assert cam.x == after_release
+
+    def test_key_scroll_diagonal(self) -> None:
+        """Holding left+up scrolls diagonally."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        old_x, old_y = cam.x, cam.y
+
+        cam.handle_input(InputEvent(type="key_press", key="left", action="left"))
+        cam.handle_input(InputEvent(type="key_press", key="up", action="up"))
+        cam.update(1.0)
+
+        assert cam.x == old_x - 100
+        assert cam.y == old_y - 100
+
+    def test_key_scroll_opposite_keys_cancel(self) -> None:
+        """Holding left+right results in no horizontal movement."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        old_x = cam.x
+
+        cam.handle_input(InputEvent(type="key_press", key="left", action="left"))
+        cam.handle_input(InputEvent(type="key_press", key="right", action="right"))
+        cam.update(1.0)
+
+        assert cam.x == old_x
+
+    def test_key_scroll_disabled(self) -> None:
+        """disable_key_scroll stops scrolling."""
+        cam = Camera((800, 600))
+        cam.center_on(500, 500)
+        cam.enable_key_scroll(speed=100)
+        cam.disable_key_scroll()
+        old_x = cam.x
+
+        cam.handle_input(InputEvent(type="key_press", key="left", action="left"))
+        cam.update(1.0)
+
+        assert cam.x == old_x
+
+    def test_key_scroll_respects_world_bounds(self) -> None:
+        """Key scrolling clamps to world bounds."""
+        cam = Camera((800, 600), world_bounds=(0, 0, 2000, 2000))
+        cam.center_on(400, 300)  # camera at (0, 0)
+        cam.enable_key_scroll(speed=500)
+
+        cam.handle_input(InputEvent(type="key_press", key="left", action="left"))
+        cam.handle_input(InputEvent(type="key_press", key="up", action="up"))
+        cam.update(1.0)
+
+        assert cam.x == 0.0
+        assert cam.y == 0.0
+
+    def test_key_scroll_via_game_tick(
+        self, game: Game, backend: MockBackend,
+    ) -> None:
+        """Key scroll works through the full Game.tick() pipeline."""
+
+        class WorldScene(Scene):
+            def on_enter(self) -> None:
+                self.camera = Camera((800, 600))
+                self.camera.center_on(500, 500)
+                self.camera.enable_key_scroll(speed=100)
+
+        game.push(WorldScene())
+        scene = game._scene_stack.top()
+        old_x = scene.camera.x
+
+        backend.inject_key("left", type="key_press")
+        game.tick(dt=1.0)
+
+        assert scene.camera.x < old_x
+        assert scene.camera.x == old_x - 100
 
 
 # ==================================================================

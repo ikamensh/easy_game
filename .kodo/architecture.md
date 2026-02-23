@@ -1,7 +1,7 @@
 # EasyGame Architecture Reference
 
-> Condensed from implementation journals (stages 6–13). All API signatures verified
-> against source. Tests: 1018 unit + 56 screenshot, all passing.
+> Condensed from implementation journals (stages 6–13), updated for stage 3 API
+> improvements. All API signatures verified against source.
 
 ---
 
@@ -18,7 +18,7 @@
 8. camera sync → begin_frame → draw → end_frame → camera restore
 ```
 
-**Input dispatch order:** HUD → Scene UI → `scene.handle_input(event)`
+**Input dispatch order:** HUD → Scene UI → Camera key scroll → `scene.handle_input(event)`
 
 **Draw order (SceneStack):**
 1. Base scene (lowest opaque) + its UI
@@ -34,8 +34,9 @@ Sprite world pos → anchor_offset → world draw corner → subtract camera off
   → screen draw corner → backend.update_sprite → [Pyglet] y-flip + scale → GPU
 ```
 
-Without camera: sprites render at world pos (world == screen). Mouse events are
-always **screen (logical) coords**; call `camera.screen_to_world()` for world coords.
+Without camera: sprites render at world pos (world == screen). Mouse `InputEvent`s
+have `world_x`/`world_y` auto-populated by the framework before dispatch (via
+camera when present, else equal to screen coords). Non-mouse events: `None`.
 
 ---
 
@@ -59,7 +60,9 @@ below visible.
 ```python
 class Game:
     def __init__(self, title: str, *, resolution=(1920, 1080), fullscreen=True,
-                 backend="pyglet", visible=True, save_dir: Path | str | None = None)
+                 backend="pyglet", visible=True, save_dir: Path | str | None = None,
+                 asset_path: Path | str | None = None)
+    # asset_path: when provided, lazy game.assets uses this as base_path
 
     # Scene stack
     def push(self, scene: Scene) -> None
@@ -106,19 +109,33 @@ class Scene:
     transparent: bool = False     # if True, scene below is visible
     pause_below: bool = True      # if True, scene below doesn't update
     show_hud: bool = True         # if False, HUD hidden when this is on top
+    background_color: tuple[int, ...] | None = None  # (R,G,B[,A]) 0-255, clear color
     game: Game                    # set by SceneStack on push
     camera: Camera | None = None  # set by subclass in on_enter()
     @property ui -> _UIRoot       # lazy
 
     def on_enter(self) -> None
-    def on_exit(self) -> None
+    def on_exit(self) -> None     # after this, framework calls _cleanup_owned_sprites()
     def on_reveal(self) -> None           # called when scene above is popped
     def update(self, dt: float) -> None
     def draw(self) -> None
     def handle_input(self, event) -> bool # True = consumed
     def get_save_state(self) -> dict      # default: {}
     def load_save_state(self, state: dict) -> None
+
+    # Sprite ownership — auto-removed after on_exit()
+    def add_sprite(self, sprite: Sprite) -> Sprite    # register; returns sprite for chaining
+    def remove_sprite(self, sprite: Sprite) -> None   # deregister + sprite.remove()
 ```
+
+**`background_color`:** Base scene's color is passed to `backend.begin_frame(clear_color)`
+in `Game.tick()`. Per-frame clear — no sprite creation/cleanup. Transparent overlay
+scenes inherit the base scene's background.
+
+**Sprite ownership:** `add_sprite()` registers a sprite; `_cleanup_owned_sprites()` runs
+after `on_exit()` in all SceneStack transitions (push, pop, replace, clear_and_push).
+Sprites individually removed via `sprite.remove()` auto-deregister from the scene.
+Direct `Sprite()` creation without `add_sprite()` still works (unowned, manual cleanup).
 
 ---
 
@@ -188,10 +205,17 @@ class Camera:
     def pan_to(self, x, y, duration, easing=None)  # smooth tween
     def enable_edge_scroll(self, margin, speed)
     def disable_edge_scroll(self)
+    def enable_key_scroll(self, speed: float = 300)   # arrow-key scrolling
+    def disable_key_scroll(self)
+    def handle_input(self, event) -> bool  # process directional keys; True = consumed
     def screen_to_world(self, sx, sy) -> tuple[float, float]
     def world_to_screen(self, wx, wy) -> tuple[float, float]
-    def update(self, dt, mouse_x=None, mouse_y=None)  # per-frame
+    def update(self, dt, mouse_x=None, mouse_y=None)  # per-frame (edge + key scroll)
 ```
+
+**Key scroll:** `enable_key_scroll(speed)` tracks held arrow keys via `handle_input()`.
+`Game.tick()` calls `camera.handle_input(event)` after HUD and Scene UI, before
+`scene.handle_input()`. `update()` applies key scroll alongside edge scroll.
 
 Frustum culling uses sprite image dimensions as margin.
 
@@ -267,12 +291,18 @@ class InputEvent:
     type: str           # "key_press"|"key_release"|"click"|"release"|"move"|"drag"|"scroll"
     key: str | None; action: str | None   # action = mapped name
     x: int; y: int; button: str | None; dx: int; dy: int
+    world_x: float | None = None  # camera-transformed x (mouse events only)
+    world_y: float | None = None  # camera-transformed y (mouse events only)
 
 class InputManager:
     def bind(self, action, key); def unbind(self, action)
     def get_bindings(self) -> dict[str, str]
     def translate(self, raw_events) -> list[InputEvent]
 ```
+
+**World coords:** `_with_world_coords(event, camera)` in `Game.tick()` creates a new
+frozen InputEvent via `dataclasses.replace()` before any handler sees it. Mouse events
+get camera-transformed coords (or screen coords if no camera). Non-mouse events: `None`.
 
 ## Assets
 
@@ -402,9 +432,13 @@ Layout computed lazily (dirty flag). `_ensure_layout()` called before draw/input
 
 ```python
 # Foundation (easygame/ui/components.py)
-class Label(Component):    __init__(self, text, *, style=None, **kw); text: str  # settable
+class Label(Component):    __init__(self, text, *, font_size=None, text_color=None,
+                                    font=None, style=None, **kw)
+                           text: str  # settable
+                           # font_size/text_color convenience kwargs merged into Style
 class Button(Component):   __init__(self, text, *, on_click=None, style=None, **kw)
                            text: str; is_hovered: bool; is_pressed: bool
+                           # on_draw resolves "disabled" state when enabled=False
 class Panel(Component):    __init__(self, *, layout=Layout.NONE, spacing=0, padding=0, **kw)
 
 # Extended (easygame/ui/widgets.py)
@@ -449,13 +483,19 @@ class ResolvedStyle: # all concrete — result of theme resolution
 class Theme:
     def __init__(self, *, font="serif", font_size=24, text_color=...,
                  panel_*=..., button_*=..., label_*=..., progressbar_*=...,
+                 button_disabled_color=(40,42,55,200),
+                 button_disabled_text_color=(100,100,110,200),
                  selected_color=..., tooltip_*=..., tab_*=..., datatable_*=...,
                  drop_accept_color=..., drop_reject_color=..., ghost_opacity=0.5)
-    # resolve_{label,button,panel,imagebox,progressbar,list,grid,tooltip,tabgroup,datatable}_style()
+    # resolve_{label,button,panel,...}_style()
+    # resolve_button_style(explicit, state) — state: "normal"|"hovered"|"pressed"|"disabled"
 ```
 
 Widget-specific colors not in `ResolvedStyle` are Theme properties (e.g.,
 `theme.progressbar_color`, `theme.selected_color`, `theme.tab_active_color`).
+
+**Disabled buttons:** `Button.on_draw()` resolves `"disabled"` state when `enabled=False`.
+Theme provides `button_disabled_color` and `button_disabled_text_color` for muted visuals.
 
 ---
 
@@ -491,7 +531,7 @@ class SaveLoadScreen(Scene):  __init__(self, mode, *, on_save=None, on_load=None
 class Backend(Protocol):
     # Window lifecycle
     create_window(width, height, title, fullscreen, visible=True)
-    begin_frame(); end_frame(); poll_events() -> list[Event]; get_dt() -> float; quit()
+    begin_frame(clear_color=None); end_frame(); poll_events() -> list[Event]; get_dt() -> float; quit()
 
     # Images & sprites
     load_image(path) -> ImageHandle; load_image_from_pil(pil_image) -> ImageHandle
@@ -538,8 +578,8 @@ _project_root = Path(__file__).resolve().parents[N]   # N = depth to repo root
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-game = Game("Title", resolution=(1920, 1080), fullscreen=False, backend="pyglet")
-game.assets = AssetManager(game.backend, base_path=Path(__file__).resolve().parent / "assets")
+game = Game("Title", resolution=(1920, 1080), fullscreen=False, backend="pyglet",
+            asset_path=Path(__file__).resolve().parent / "assets")
 game.run(StartScene())
 ```
 
@@ -554,5 +594,29 @@ Assets go to both `assets/images/sprites/` (tests) and the local example dir.
 from easygame import Game, Scene, Sprite, Camera, Panel, Label, Button, ...
 ```
 
-**Scene cleanup:** Every scene must cancel tweens, remove sprites, and clear
-collections in `on_exit()` to prevent leaks across push/pop transitions.
+**Scene cleanup:** Sprites registered via `scene.add_sprite()` are auto-removed after
+`on_exit()`. Unowned sprites, tweens, and timers still need manual cleanup in `on_exit()`.
+
+---
+
+## Stage 3: API Improvements — Completed
+
+Seven friction points from TD tutorial (chapters 1–3) resolved. All changes are
+additive (backward-compatible). Signatures integrated into subsystem sections above.
+
+| Change | Files touched |
+|--------|---------------|
+| `Scene.background_color` | `scene.py` (attr + SceneStack), `game.py` (begin_frame) |
+| `Scene.add_sprite()` / `remove_sprite()` | `scene.py` (ownership + lifecycle), `sprite.py` (deregister) |
+| `Game(asset_path=...)` | `game.py` (__init__ + assets property) |
+| `Button` disabled visual | `components.py` (on_draw), `theme.py` (disabled fields + resolve) |
+| `Label(font_size=, text_color=)` | `components.py` (Label.__init__ + _merge_label_style) |
+| `Camera.enable_key_scroll()` | `camera.py` (handle_input + update), `game.py` (dispatch) |
+| `InputEvent.world_x/y` | `input.py` (fields + _with_world_coords), `game.py` (dispatch) |
+
+**Key design decisions:**
+- `InputEvent` stays `frozen=True`; world coords populated via `dataclasses.replace()`
+- `add_sprite()` takes an already-created Sprite (not construction args) for flexibility
+- `_cleanup_owned_sprites()` runs *after* user's `on_exit()` so custom cleanup can run first
+- `Camera.handle_input()` consumes directional keys; scene can still override by consuming first
+- `Label` gets `font_size`/`text_color`/`font` convenience kwargs; `Button` uses `style=` only

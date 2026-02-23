@@ -149,6 +149,9 @@ class Sprite:
         # Action state (Stage 10 Composable Actions).
         self._current_action: Action | None = None
 
+        # Scene ownership (set by Scene.add_sprite).
+        self._owning_scene: Any = None
+
         # Cache image dimensions for anchor offset.
         self._img_w, self._img_h = self._backend.get_image_size(
             self._image_handle,
@@ -303,8 +306,8 @@ class Sprite:
         """Remove the sprite from the backend batch.
 
         Also stops any active action, animation, cancels move tweens, and
-        deregisters from the game's sprite sets.  Safe to call multiple
-        times.
+        deregisters from the game's sprite sets and owning scene.  Safe to
+        call multiple times.
         """
         if self._removed:
             return
@@ -319,6 +322,10 @@ class Sprite:
         self._game._animated_sprites.discard(self)
         self._game._all_sprites.discard(self)
         self._game._action_sprites.discard(self)
+        # Deregister from owning scene (if any).
+        if self._owning_scene is not None:
+            self._owning_scene._owned_sprites.discard(self)
+            self._owning_scene = None
         self._backend.remove_sprite(self._sprite_id)
 
     @property

@@ -286,6 +286,43 @@ class TestLabel:
         assert w == _estimate_text_width("Hi", 48)
         assert h == int(48 * 1.4)  # 67
 
+    def test_convenience_kwargs_font_size_text_color(self, root: _UIRoot, backend: MockBackend) -> None:
+        """font_size and text_color as direct kwargs work without Style wrapper."""
+        label = Label("Hello", font_size=24, text_color=(255, 255, 255, 255))
+        root.add(label)
+        root._ensure_layout()
+        root.draw()
+
+        assert backend.texts[0]["font_size"] == 24
+        assert backend.texts[0]["color"] == (255, 255, 255, 255)
+
+    def test_convenience_kwargs_preferred_size(self) -> None:
+        """font_size as direct kwarg affects preferred size."""
+        label = Label("Hi", font_size=36)
+        w, h = label.get_preferred_size()
+        assert w == _estimate_text_width("Hi", 36)
+        assert h == int(36 * 1.4)
+
+    def test_style_overrides_convenience_kwargs_when_both(self, root: _UIRoot, backend: MockBackend) -> None:
+        """Explicit style wins over convenience kwargs for overlapping fields."""
+        label = Label("Hi", font_size=24, style=Style(font_size=48, text_color=(255, 0, 0, 255)))
+        root.add(label)
+        root._ensure_layout()
+        root.draw()
+
+        assert backend.texts[0]["font_size"] == 48  # style wins
+        assert backend.texts[0]["color"] == (255, 0, 0, 255)  # style wins
+
+    def test_convenience_kwargs_merge_with_style(self, root: _UIRoot, backend: MockBackend) -> None:
+        """Convenience kwargs fill in fields not set by explicit style."""
+        label = Label("Hi", font_size=32, style=Style(text_color=(0, 255, 0, 255)))
+        root.add(label)
+        root._ensure_layout()
+        root.draw()
+
+        assert backend.texts[0]["font_size"] == 32  # from kwarg
+        assert backend.texts[0]["color"] == (0, 255, 0, 255)  # from style
+
 
 # ==================================================================
 # 3. Button (~12 tests)
@@ -459,6 +496,24 @@ class TestButton:
 
         expected_bg = game.theme.resolve_button_style(None, "hovered").background_color
         assert backend.rects[0]["color"] == expected_bg
+
+    def test_disabled_button_uses_disabled_style(
+        self, root: _UIRoot, backend: MockBackend, game: Game,
+    ) -> None:
+        """Disabled button draws with distinct muted/grayed-out colors."""
+        btn = Button("Buy", width=100, height=40, anchor=Anchor.TOP_LEFT, enabled=False)
+        root.add(btn)
+        root._ensure_layout()
+        root.draw()
+
+        disabled_style = game.theme.resolve_button_style(None, "disabled")
+        normal_style = game.theme.resolve_button_style(None, "normal")
+
+        assert backend.rects[0]["color"] == disabled_style.background_color
+        assert backend.rects[0]["color"] != normal_style.background_color
+
+        assert backend.texts[0]["color"] == disabled_style.text_color
+        assert backend.texts[0]["color"] != normal_style.text_color
 
 
 # ==================================================================

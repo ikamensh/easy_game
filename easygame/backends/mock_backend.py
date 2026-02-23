@@ -144,8 +144,12 @@ class MockBackend:
         self.logical_width = width
         self.logical_height = height
 
-    def begin_frame(self) -> None:
+    def begin_frame(
+        self,
+        clear_color: tuple[int, ...] | None = None,
+    ) -> None:
         """Reset per-frame recorded state."""
+        self.clear_color = clear_color  # for tests
         self.texts.clear()
         self.rects.clear()
         self.images.clear()

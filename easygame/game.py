@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
 from easygame.backends.base import Event, MouseEvent, WindowEvent
+from easygame.input import _with_world_coords
 from easygame.scene import Scene, SceneStack
 
 if TYPE_CHECKING:
@@ -44,6 +45,10 @@ class Game:
         visible:    Whether the window is initially visible (default
                     ``True``).  Pass ``False`` to create a hidden window
                     (useful for headless rendering or testing).
+        asset_path: Base directory for assets.  When provided, the lazy
+                    ``game.assets`` uses this path instead of ``"assets"``.
+                    Setting ``game.assets = AssetManager(...)`` explicitly
+                    still overrides this.
     """
 
     def __init__(
@@ -55,9 +60,11 @@ class Game:
         backend: str | object = "pyglet",
         visible: bool = True,
         save_dir: Path | str | None = None,
+        asset_path: Path | str | None = None,
     ) -> None:
         self._title = title
         self._save_dir_override = Path(save_dir) if save_dir is not None else None
+        self._asset_path = Path(asset_path) if asset_path is not None else None
         self._resolution = resolution
         self._fullscreen = fullscreen
         self._visible = visible
@@ -143,9 +150,10 @@ class Game:
             from easygame.assets import AssetManager as _AM
 
             scale = getattr(self._backend, "scale_factor", 1.0)
+            base_path = self._asset_path if self._asset_path is not None else Path("assets")
             self._assets = _AM(
                 self._backend,
-                base_path=Path("assets"),
+                base_path=base_path,
                 scale_factor=scale,
             )
         return self._assets
@@ -448,6 +456,10 @@ class Game:
         for event in input_events:
             top = self._scene_stack.top()
             if top is not None:
+                # Populate world_x/world_y before any handler sees the event.
+                camera = getattr(top, "camera", None)
+                event = _with_world_coords(event, camera)
+
                 # HUD gets first crack at input.
                 if (
                     self._hud is not None
@@ -460,6 +472,9 @@ class Game:
                     top._ui._ensure_layout()
                     if top._ui.handle_event(event):
                         continue
+                # Camera key scroll gets third crack (before scene).
+                if camera is not None and camera.handle_input(event):
+                    continue
                 top.handle_input(event)
 
         self._scene_stack.flush_pending_ops()
@@ -507,7 +522,14 @@ class Game:
         else:
             saved = None
 
-        self._backend.begin_frame()
+        base = self._scene_stack.get_base_scene()
+        clear_color = None
+        if base is not None:
+            bc = getattr(base.__class__, "background_color", None)
+            if bc is not None and len(bc) >= 3:
+                clear_color = bc
+
+        self._backend.begin_frame(clear_color)
         self._scene_stack.draw()
         self._backend.end_frame()
 
