@@ -140,7 +140,12 @@ class TimerManager:
 
         Returns a :class:`TimerHandle` for cancellation and chaining.
         No catch-up on large dt — fires at most once per update.
+
+        Raises:
+            ValueError: If *interval* is zero or negative.
         """
+        if interval <= 0:
+            raise ValueError("interval must be > 0")
         timer_id = self._next_id
         self._next_id += 1
         chain_ids: list[int] = [timer_id]

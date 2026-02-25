@@ -92,10 +92,14 @@ class Sequence(Action):
 
     def start(self, sprite: Sprite) -> None:
         self._sprite = sprite
+        if sprite is None:
+            return
         if self._actions:
             self._actions[0].start(sprite)
 
     def update(self, dt: float) -> bool:
+        if self._sprite is None:
+            return True  # not started with a valid sprite
         while self._index < len(self._actions):
             child = self._actions[self._index]
             if child.update(dt):
@@ -264,6 +268,8 @@ class MoveTo(Action):
 
     def update(self, dt: float) -> bool:
         sprite = self._sprite
+        if sprite is None:
+            return True  # not started yet; treat as finished
         dx = self._target_x - sprite._x
         dy = self._target_y - sprite._y
         dist = math.hypot(dx, dy)
@@ -299,6 +305,8 @@ class FadeOut(Action):
         self._start_opacity = sprite.opacity
 
     def update(self, dt: float) -> bool:
+        if self._sprite is None:
+            return True  # not started yet; treat as finished
         self._elapsed += dt
         if self._elapsed >= self._duration:
             self._sprite.opacity = 0
@@ -329,6 +337,8 @@ class FadeIn(Action):
         self._start_opacity = sprite.opacity
 
     def update(self, dt: float) -> bool:
+        if self._sprite is None:
+            return True  # not started yet; treat as finished
         self._elapsed += dt
         if self._elapsed >= self._duration:
             self._sprite.opacity = 255
@@ -357,6 +367,8 @@ class Remove(Action):
         self._sprite = sprite
 
     def update(self, dt: float) -> bool:
+        if self._sprite is None:
+            return True  # not started yet; treat as finished
         self._sprite.remove()
         return True
 
@@ -389,6 +401,13 @@ class Repeat(Action):
 
     def start(self, sprite: Sprite) -> None:
         self._sprite = sprite
+        if sprite is None:
+            self._current = None
+            return
+        if self._times is not None and self._times <= 0:
+            # Zero repetitions: no-op, finish immediately.
+            self._current = None
+            return
         self._current = copy.deepcopy(self._action_template)
         self._current.start(sprite)
 

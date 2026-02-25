@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
+from weakref import WeakSet
 
 from easygame.backends.base import Event, MouseEvent, WindowEvent
 from easygame.input import _with_world_coords
@@ -25,7 +26,9 @@ from easygame.scene import Scene, SceneStack
 if TYPE_CHECKING:
     from easygame.assets import AssetManager
     from easygame.audio import AudioManager
+    from easygame.backends.base import Backend
     from easygame.cursor import CursorManager
+    from easygame.input import InputManager
     from easygame.save import SaveManager
     from easygame.ui.hud import HUD
     from easygame.ui.theme import Theme
@@ -46,6 +49,9 @@ class Game:
         visible:    Whether the window is initially visible (default
                     ``True``).  Pass ``False`` to create a hidden window
                     (useful for headless rendering or testing).
+        save_dir:   Directory for save files.  When provided, the lazy
+                    ``game.save_manager`` uses this path instead of the
+                    default ``~/.{title_slug}/saves/``.
         asset_path: Base directory for assets.  When provided, the lazy
                     ``game.assets`` uses this path instead of ``"assets"``.
                     Setting ``game.assets = AssetManager(...)`` explicitly
@@ -71,6 +77,7 @@ class Game:
         self._visible = visible
 
         # --- Backend selection ------------------------------------------------
+        self._backend: Backend
         if backend == "mock":
             from easygame.backends.mock_backend import MockBackend
 
@@ -80,7 +87,7 @@ class Game:
 
             self._backend = PygletBackend()
         elif hasattr(backend, "poll_events"):  # duck-type check
-            self._backend = backend
+            self._backend = backend  # type: ignore[assignment]
         else:
             raise ValueError(
                 f"Unknown backend {backend!r}. "
@@ -97,7 +104,7 @@ class Game:
         self._save_manager: SaveManager | None = None
         self._hud: HUD | None = None
         self._animated_sprites: set = set()
-        self._all_sprites: set = set()
+        self._all_sprites: WeakSet = WeakSet()
         self._action_sprites: set = set()
         self._particle_emitters: set = set()
 
@@ -214,7 +221,7 @@ class Game:
         return self._cursor
 
     @property
-    def input(self) -> object:
+    def input(self) -> InputManager:
         """The :class:`~easygame.input.InputManager`.
 
         Use to rebind actions at runtime::
@@ -461,24 +468,24 @@ class Game:
             if top is not None:
                 # Populate world_x/world_y before any handler sees the event.
                 camera = getattr(top, "camera", None)
-                event = _with_world_coords(ev, camera)
+                translated_event = _with_world_coords(ev, camera)
 
                 # HUD gets first crack at input.
                 if (
                     self._hud is not None
                     and self._hud._should_draw(top.show_hud)
-                    and self._hud._handle_event(event)
+                    and self._hud._handle_event(translated_event)
                 ):
                     continue
                 # Scene UI gets second crack.
                 if top._ui is not None:
                     top._ui._ensure_layout()
-                    if top._ui.handle_event(event):
+                    if top._ui.handle_event(translated_event):
                         continue
                 # Camera key scroll gets third crack (before scene).
-                if camera is not None and camera.handle_input(event):
+                if camera is not None and camera.handle_input(translated_event):
                     continue
-                top.handle_input(event)
+                top.handle_input(translated_event)
 
         self._scene_stack.flush_pending_ops()
 

@@ -59,6 +59,18 @@ class _Particle:
 class ParticleEmitter:
     """Managed particle spawner.
 
+    Supports two modes: **burst** (one-shot batch) and **continuous**
+    (steady rate per second).  Burst emitters are self-cleaning — the
+    emitter becomes inactive once all particles expire and is
+    automatically deregistered by the game loop.
+
+    **Continuous emitters must be explicitly stopped** by calling
+    :meth:`stop` (cease spawning, let particles die naturally) or
+    :meth:`remove` (kill everything immediately).  Typically this is
+    done in the owning scene's :meth:`~easygame.scene.Scene.on_exit`
+    to prevent the emitter from firing in the background after the
+    scene is no longer active.
+
     Parameters:
         image:     Asset name (or list of names for variety — one chosen at
                    random per particle).

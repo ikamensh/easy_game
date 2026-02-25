@@ -31,7 +31,7 @@ from easygame.assets import AssetManager
 from easygame.backends.base import KeyEvent, MouseEvent
 from easygame.backends.mock_backend import MockBackend
 from easygame.input import InputManager
-from easygame.save import SaveManager
+from easygame.save import SaveError, SaveManager
 from easygame.util.timer import TimerManager
 
 
@@ -71,29 +71,21 @@ class TestSpriteOpacity:
     """Sprite.opacity should accept any numeric value; the framework
     should clamp it to the valid 0-255 range before syncing to backend."""
 
-    def test_opacity_above_255_is_not_clamped(
+    def test_opacity_out_of_range_high(
         self, game: Game, backend: MockBackend
     ) -> None:
-        """Setting opacity > 255 stores raw value (no clamping)."""
+        """Setting opacity > 255 clamps to 255."""
         game.push(Scene())
         s = Sprite("sprites/knight", position=(0, 0))
         s.opacity = 999
-        # FINDING: value passes through unclamped.
-        # Expected after fix: s.opacity == 255
-        assert s.opacity == 999, (
-            "If this fails, opacity clamping has been implemented (good!)"
-        )
+        assert s.opacity == 255
 
-    def test_opacity_negative_is_not_clamped(self, game: Game) -> None:
-        """Setting opacity < 0 stores raw value (no clamping)."""
+    def test_opacity_negative(self, game: Game) -> None:
+        """Setting opacity < 0 clamps to 0."""
         game.push(Scene())
         s = Sprite("sprites/knight", position=(0, 0))
         s.opacity = -50
-        # FINDING: value passes through unclamped.
-        # Expected after fix: s.opacity == 0
-        assert s.opacity == -50, (
-            "If this fails, opacity clamping has been implemented (good!)"
-        )
+        assert s.opacity == 0
 
     def test_opacity_float_truncates_to_int(self, game: Game) -> None:
         """Float opacity is truncated to int."""
@@ -121,16 +113,12 @@ class TestSpriteTint:
     """Sprite.tint components should be in [0.0, 1.0]; values outside
     this range are currently stored as-is."""
 
-    def test_tint_above_range_is_not_clamped(self, game: Game) -> None:
-        """Tint components > 1.0 are stored as-is (no clamping)."""
+    def test_tint_out_of_range(self, game: Game) -> None:
+        """Tint components outside [0.0, 1.0] are clamped."""
         game.push(Scene())
         s = Sprite("sprites/knight", position=(0, 0))
         s.tint = (2.0, -0.5, 100.0)
-        # FINDING: value passes through unclamped.
-        # Expected after fix: s.tint == (1.0, 0.0, 1.0)
-        assert s.tint == (2.0, -0.5, 100.0), (
-            "If this fails, tint clamping has been implemented (good!)"
-        )
+        assert s.tint == (1.0, 0.0, 1.0)
 
     def test_tint_valid_range_accepted(self, game: Game) -> None:
         """Values within [0.0, 1.0] are accepted unchanged."""
@@ -154,11 +142,9 @@ class TestSpriteTint:
 class TestSceneStackPushNone:
     """push(None) should raise a clean ValueError, not AttributeError."""
 
-    def test_push_none_raises_attribute_error(self, game: Game) -> None:
-        """push(None) currently raises AttributeError (unguarded)."""
-        # FINDING: raises AttributeError, not ValueError.
-        # Expected after fix: raises ValueError with clear message.
-        with pytest.raises(AttributeError):
+    def test_push_none_raises(self, game: Game) -> None:
+        """push(None) raises ValueError with a clear message."""
+        with pytest.raises(ValueError, match="scene must not be None"):
             game.push(None)  # type: ignore[arg-type]
 
     def test_push_valid_scene_works(self, game: Game) -> None:
@@ -177,21 +163,17 @@ class TestSceneStackPushNone:
 class TestTimerEveryInterval:
     """every() should validate interval > 0."""
 
-    def test_every_zero_interval_accepted(self) -> None:
-        """every(0, ...) currently accepts interval=0 without error."""
+    def test_interval_zero_raises(self) -> None:
+        """every(0, ...) raises ValueError."""
         mgr = TimerManager()
-        # FINDING: no validation; zero interval accepted.
-        # Expected after fix: raises ValueError.
-        handle = mgr.every(0, lambda: None)
-        assert handle is not None  # it returns a handle — no error raised
+        with pytest.raises(ValueError, match="interval must be > 0"):
+            mgr.every(0, lambda: None)
 
-    def test_every_negative_interval_accepted(self) -> None:
-        """every(-1.0, ...) currently accepts negative interval without error."""
+    def test_negative_interval_raises(self) -> None:
+        """every(-1.0, ...) raises ValueError."""
         mgr = TimerManager()
-        # FINDING: no validation; negative interval accepted.
-        # Expected after fix: raises ValueError.
-        handle = mgr.every(-1.0, lambda: None)
-        assert handle is not None
+        with pytest.raises(ValueError, match="interval must be > 0"):
+            mgr.every(-1.0, lambda: None)
 
     def test_every_positive_interval_works(self) -> None:
         """every() with a valid positive interval fires correctly."""
@@ -237,20 +219,16 @@ class TestRepeatTimesZero:
     """Repeat(action, times=0) should be a no-op — the child should
     never run."""
 
-    def test_repeat_zero_runs_child_once(self, game: Game) -> None:
-        """Repeat(Do(...), times=0) currently runs the child once."""
+    def test_repeat_zero_is_noop(self, game: Game) -> None:
+        """Repeat(Do(...), times=0) is a no-op: finishes immediately without running the child."""
         game.push(Scene())
         s = Sprite("sprites/knight", position=(0, 0))
         count: list[int] = []
         action = Repeat(Do(lambda: count.append(1)), times=0)
         action.start(s)
         result = action.update(0.016)
-        # FINDING: child runs once, then Repeat finishes.
-        # Expected after fix: count == 0, result == True immediately.
         assert result is True
-        assert len(count) == 1, (
-            "If this fails with count==0, the times=0 no-op fix was applied (good!)"
-        )
+        assert len(count) == 0, "times=0 should never run the child action"
 
     def test_repeat_once_runs_child_exactly_once(self, game: Game) -> None:
         """Repeat(Do(...), times=1) runs the child exactly once."""
@@ -283,28 +261,23 @@ class TestRepeatTimesZero:
 class TestCameraNaNInf:
     """Camera.center_on() should reject NaN/Inf coordinates."""
 
-    def test_center_on_nan_accepted(self) -> None:
-        """center_on(NaN, NaN) currently succeeds (no validation)."""
+    def test_center_on_nan_raises(self) -> None:
+        """center_on(NaN, NaN) raises ValueError."""
         cam = Camera((800, 600))
-        # FINDING: NaN propagates into camera position.
-        # Expected after fix: raises ValueError.
-        cam.center_on(float("nan"), float("nan"))
-        assert math.isnan(cam.x), "NaN propagated into camera x"
+        with pytest.raises(ValueError, match="camera coordinates must be finite"):
+            cam.center_on(float("nan"), float("nan"))
 
-    def test_center_on_inf_accepted(self) -> None:
-        """center_on(inf, -inf) currently succeeds (no validation)."""
+    def test_center_on_inf_raises(self) -> None:
+        """center_on(inf, -inf) raises ValueError."""
         cam = Camera((800, 600))
-        # FINDING: Inf propagates into camera position.
-        # Expected after fix: raises ValueError.
-        cam.center_on(float("inf"), float("-inf"))
-        assert math.isinf(cam.x), "Inf propagated into camera x"
+        with pytest.raises(ValueError, match="camera coordinates must be finite"):
+            cam.center_on(float("inf"), float("-inf"))
 
-    def test_center_on_inf_with_bounds(self) -> None:
-        """center_on(inf, inf) with bounds — _clamp may mask inf to bound edge."""
+    def test_center_on_inf_with_bounds_raises(self) -> None:
+        """center_on(inf, inf) with bounds raises ValueError before clamping."""
         cam = Camera((800, 600), world_bounds=(0, 0, 2000, 2000))
-        cam.center_on(float("inf"), float("inf"))
-        # With bounds, _clamp brings inf to the max bound edge.
-        # Still not ideal — inf should be rejected before clamping.
+        with pytest.raises(ValueError, match="camera coordinates must be finite"):
+            cam.center_on(float("inf"), float("inf"))
 
     def test_center_on_finite_works(self) -> None:
         """center_on() with normal finite coordinates works correctly."""
@@ -349,19 +322,16 @@ class TestSaveManagerEdgeCases:
         with pytest.raises(TypeError):
             mgr.save(1, {"obj": object()}, "TestScene")
 
-    def test_load_corrupted_json_raises_decode_error(
+    def test_corrupted_json_raises_save_error(
         self, tmp_path: Path
     ) -> None:
-        """load() with corrupted JSON raises json.JSONDecodeError (raw)."""
+        """load() with corrupted JSON raises SaveError."""
         save_dir = tmp_path / "saves"
         save_dir.mkdir()
         corrupt_file = save_dir / "save_1.json"
         corrupt_file.write_text("{not valid json!!!", encoding="utf-8")
         mgr = SaveManager(save_dir)
-        # FINDING: raw JSONDecodeError leaks out. No framework-specific
-        # SaveError wraps it.
-        # Expected after fix: raises SaveError with clear message.
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(SaveError, match="Corrupted save file"):
             mgr.load(1)
 
     def test_save_and_load_roundtrip(self, tmp_path: Path) -> None:

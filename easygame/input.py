@@ -19,8 +19,12 @@ cancel, directional) and supports rebinding at runtime.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from easygame.backends.base import Event, KeyEvent, MouseEvent
+
+if TYPE_CHECKING:
+    from easygame.rendering.camera import Camera
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +85,7 @@ _MOUSE_EVENT_TYPES = frozenset({"click", "release", "move", "drag", "scroll"})
 
 def _with_world_coords(
     event: InputEvent,
-    camera: object | None,
+    camera: Camera | None,
 ) -> InputEvent:
     """Return *event* with ``world_x``/``world_y`` populated.
 

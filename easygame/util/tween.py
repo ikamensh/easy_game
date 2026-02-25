@@ -115,6 +115,15 @@ class TweenManager:
             self._tweens[tween_id].cancelled = True
             del self._tweens[tween_id]
 
+    def cancel_by_target(self, target: object) -> None:
+        """Cancel all active tweens targeting *target*."""
+        to_remove = [
+            tid for tid, t in self._tweens.items() if t.target is target
+        ]
+        for tid in to_remove:
+            self._tweens[tid].cancelled = True
+            del self._tweens[tid]
+
     def cancel_all(self) -> None:
         """Cancel all active tweens."""
         self._tweens.clear()

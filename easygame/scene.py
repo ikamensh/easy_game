@@ -318,7 +318,7 @@ class SceneStack:
     def __init__(self, game: Game) -> None:
         self._game: Game = game
         self._stack: list[Scene] = []
-        self._pending_ops: list[tuple[str, ...]] = []
+        self._pending_ops: list[tuple[str] | tuple[str, Scene]] = []
         self._in_tick: bool = False
 
     def top(self) -> Scene | None:
@@ -339,6 +339,8 @@ class SceneStack:
 
     def push(self, scene: Scene) -> None:
         """Push scene on top. Current top gets on_exit, new scene gets on_enter."""
+        if scene is None:
+            raise ValueError("scene must not be None")
         if self._in_tick:
             self._pending_ops.append(("push", scene))
             return
@@ -353,6 +355,8 @@ class SceneStack:
 
     def replace(self, scene: Scene) -> None:
         """Replace top scene. Old gets on_exit, new gets on_enter. No on_reveal."""
+        if scene is None:
+            raise ValueError("scene must not be None")
         if self._in_tick:
             self._pending_ops.append(("replace", scene))
             return
@@ -360,6 +364,8 @@ class SceneStack:
 
     def clear_and_push(self, scene: Scene) -> None:
         """Clear stack, push scene. All cleared scenes get on_exit."""
+        if scene is None:
+            raise ValueError("scene must not be None")
         if self._in_tick:
             self._pending_ops.append(("clear_and_push", scene))
             return
@@ -375,14 +381,17 @@ class SceneStack:
         while self._pending_ops:
             op = self._pending_ops.pop(0)
             kind = op[0]
-            if kind == "push":
-                self._apply_push(op[1])
-            elif kind == "pop":
+            if kind == "pop":
                 self._apply_pop()
+            elif kind == "push":
+                scene = op[1]  # type: ignore[misc]
+                self._apply_push(scene)
             elif kind == "replace":
-                self._apply_replace(op[1])
+                scene = op[1]  # type: ignore[misc]
+                self._apply_replace(scene)
             elif kind == "clear_and_push":
-                self._apply_clear_and_push(op[1])
+                scene = op[1]  # type: ignore[misc]
+                self._apply_clear_and_push(scene)
 
     def _apply_push(self, scene: Scene) -> None:
         if self._stack:

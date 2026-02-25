@@ -18,6 +18,7 @@ world space.
 
 from __future__ import annotations
 
+import math
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -126,7 +127,14 @@ class Camera:
         """Center the viewport on world position ``(x, y)``.
 
         Cancels any active pan and disables follow.
+
+        Raises:
+            ValueError: If *x* or *y* is NaN or Inf.
         """
+        if not math.isfinite(x) or not math.isfinite(y):
+            raise ValueError(
+                "camera coordinates must be finite (not NaN or Inf)"
+            )
         self._cancel_pan()
         self._follow_target = None
         self._x = x - self._vw / 2

@@ -38,6 +38,12 @@ from pathlib import Path
 from typing import Any
 
 
+class SaveError(Exception):
+    """Raised when a save file cannot be read or is corrupted."""
+
+    pass
+
+
 class SaveManager:
     """Manages save file I/O, slot listing, and metadata.
 
@@ -85,12 +91,21 @@ class SaveManager:
 
         Returns the full save dict (version, timestamp, scene_class, state)
         or ``None`` if the slot is empty (file doesn't exist).
+
+        Raises:
+            SaveError: If the file exists but cannot be parsed (corrupted
+                JSON, I/O error, etc.).
         """
         path = self._slot_path(slot)
         if not path.exists():
             return None
-        text = path.read_text(encoding="utf-8")
-        return json.loads(text)  # type: ignore[no-any-return]
+        try:
+            text = path.read_text(encoding="utf-8")
+            return json.loads(text)  # type: ignore[no-any-return]
+        except (json.JSONDecodeError, TypeError, OSError) as exc:
+            raise SaveError(
+                f"Corrupted save file in slot {slot}: {path}"
+            ) from exc
 
     def list_slots(self, count: int = 10) -> list[dict[str, Any] | None]:
         """Return metadata for slots 1 through *count*.

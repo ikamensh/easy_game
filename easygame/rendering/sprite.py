@@ -214,7 +214,7 @@ class Sprite:
 
     @opacity.setter
     def opacity(self, value: int | float) -> None:
-        self._opacity = int(value)
+        self._opacity = max(0, min(255, int(value)))
         self._sync_to_backend()
 
     @property
@@ -234,7 +234,11 @@ class Sprite:
 
     @tint.setter
     def tint(self, value: tuple[float, float, float]) -> None:
-        self._tint = value
+        self._tint = (
+            max(0.0, min(1.0, value[0])),
+            max(0.0, min(1.0, value[1])),
+            max(0.0, min(1.0, value[2])),
+        )
         self._sync_to_backend()
 
     @property
@@ -332,6 +336,8 @@ class Sprite:
         for tid in self._move_tween_ids:
             self._game._tween_manager.cancel(tid)
         self._move_tween_ids.clear()
+        # Cancel any remaining tweens targeting this sprite (e.g. from tween()).
+        self._game._tween_manager.cancel_by_target(self)
         self._game._animated_sprites.discard(self)
         self._game._all_sprites.discard(self)
         self._game._action_sprites.discard(self)
