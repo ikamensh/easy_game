@@ -18,6 +18,7 @@ world space.
 
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -66,6 +67,14 @@ class Camera:
         self._pan_tween_x: int | None = None
         self._pan_tween_y: int | None = None
 
+        # Shake effect.
+        self._shake_intensity: float = 0.0
+        self._shake_duration: float = 0.0
+        self._shake_elapsed: float = 0.0
+        self._shake_decay: float = 1.0
+        self._shake_offset_x: float = 0.0
+        self._shake_offset_y: float = 0.0
+
     # ------------------------------------------------------------------
     # Read-only properties
     # ------------------------------------------------------------------
@@ -87,6 +96,16 @@ class Camera:
     @property
     def viewport_height(self) -> int:
         return self._vh
+
+    @property
+    def shake_offset_x(self) -> float:
+        """Current horizontal shake offset in pixels (read-only)."""
+        return self._shake_offset_x
+
+    @property
+    def shake_offset_y(self) -> float:
+        """Current vertical shake offset in pixels (read-only)."""
+        return self._shake_offset_y
 
     @property
     def world_bounds(self) -> tuple[float, float, float, float] | None:
@@ -190,6 +209,42 @@ class Camera:
         else:
             self._held_dirs.discard(action)
         return True
+
+    # ------------------------------------------------------------------
+    # Shake
+    # ------------------------------------------------------------------
+
+    def shake(self, intensity: float, duration: float, decay: float) -> None:
+        """Start a screen-shake effect.
+
+        The camera offsets are updated each frame in :meth:`update` with
+        random values whose magnitude decays over *duration* seconds.
+
+        Parameters:
+            intensity: Maximum pixel offset at the start of the shake.
+            duration:  How long (seconds) the shake lasts.  A duration of
+                       ``0`` is a no-op that immediately resets any active
+                       shake.
+            decay:     Exponent applied to the linear progress
+                       ``(1 - elapsed/duration)**decay`` — higher values
+                       make the shake die out faster.
+        """
+        if duration <= 0:
+            # Treat zero/negative duration as a reset.
+            self._shake_intensity = 0.0
+            self._shake_duration = 0.0
+            self._shake_elapsed = 0.0
+            self._shake_decay = 1.0
+            self._shake_offset_x = 0.0
+            self._shake_offset_y = 0.0
+            return
+
+        self._shake_intensity = intensity
+        self._shake_duration = duration
+        self._shake_elapsed = 0.0
+        self._shake_decay = decay
+        self._shake_offset_x = 0.0
+        self._shake_offset_y = 0.0
 
     # ------------------------------------------------------------------
     # Coordinate conversion
@@ -332,6 +387,20 @@ class Camera:
                 self._x += scroll_dx
                 self._y += scroll_dy
                 self._clamp()
+
+        # 4. Shake effect.
+        if self._shake_duration > 0.0 and self._shake_elapsed < self._shake_duration:
+            self._shake_elapsed += dt
+            if self._shake_elapsed >= self._shake_duration:
+                # Shake finished.
+                self._shake_offset_x = 0.0
+                self._shake_offset_y = 0.0
+                self._shake_duration = 0.0
+            else:
+                progress = self._shake_elapsed / self._shake_duration
+                decayed_intensity = self._shake_intensity * (1.0 - progress) ** self._shake_decay
+                self._shake_offset_x = random.uniform(-decayed_intensity, decayed_intensity)
+                self._shake_offset_y = random.uniform(-decayed_intensity, decayed_intensity)
 
     # ------------------------------------------------------------------
     # Internals
