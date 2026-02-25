@@ -766,3 +766,45 @@ ProgressBar, ImageBox, TextBox, List, Grid, Tooltip, TabGroup, DataTable,
 show_sequence, Parallel/FadeIn/Repeat/Delay/PlayAnim, camera.follow/pan_to/edge_scroll
 
 Coverage gap is acceptable for a TD game. Future tutorials would cover remaining subsystems.
+
+---
+
+## Edge Case Decisions (Stage 2)
+
+Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests).
+Seven issues where the framework lacks input validation or clamping.
+
+### Desired Behaviors (to be implemented as fixes)
+
+| # | Module | Issue | Desired Behavior |
+|---|--------|-------|------------------|
+| 1 | `rendering/sprite.py:215-218` | `opacity` setter stores raw value | Clamp to `max(0, min(255, int(value)))` |
+| 2 | `rendering/sprite.py:235-238` | `tint` setter stores raw components | Clamp each component to `max(0.0, min(1.0, float(c)))` |
+| 3 | `scene.py:340-345` | `push(None)` raises `AttributeError` | Guard with `if scene is None: raise ValueError("scene must not be None")` |
+| 4 | `util/timer.py:138-153` | `every()` accepts interval <= 0 | Validate `if interval <= 0: raise ValueError("interval must be > 0")` |
+| 5 | `actions.py:390-393` | `Repeat(times=0)` runs child once | Treat `times=0` as no-op: skip `start()` on child, `update()` returns `True` immediately |
+| 6 | `rendering/camera.py:125-134` | `center_on()` accepts NaN/Inf | Validate `if not math.isfinite(x) or not math.isfinite(y): raise ValueError` |
+| 7 | `save.py:92-93` | `load()` leaks `json.JSONDecodeError` | Add `SaveError(Exception)`, wrap `json.loads` in try/except, raise `SaveError("Corrupted save file")` |
+
+### Edge Cases That Already Work (no findings)
+
+- `Sprite.remove()` twice — safe (early return on `_removed`)
+- `Sprite.do()` on removed sprite — silently ignored
+- `Sequence()` with no children — finishes immediately
+- `Parallel()` with no children — finishes immediately
+- `MoveTo` to current position (distance=0) — finishes immediately
+- `FadeOut(duration=0)` and `FadeIn(duration=0)` — set final value, finish
+- `Do()` callback exception — propagates correctly
+- Nested `Sequence(Sequence(Sequence(...)))` — works
+- `Timer.after(delay=0)` — fires next tick
+- Cancel timer inside own callback — safe
+- Cancel same timer twice — no-op
+- `Camera.shake(intensity=5, duration=0)` — resets shake state
+- World bounds smaller than viewport — clamp handles it
+- `AudioManager.set_volume` — already clamps to [0.0, 1.0]
+- `AudioManager.set_volume` unknown channel — raises `KeyError`
+- `InputManager.translate([])` — returns `[]`
+- `KeyEvent(key="")` — translates without error
+- `MouseEvent` with negative coords — translates without error
+- `SaveManager.load()` non-existent slot — returns `None`
+- `SaveManager.delete()` non-existent slot — no-op

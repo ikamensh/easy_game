@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from easygame.save import SaveManager
     from easygame.ui.hud import HUD
     from easygame.ui.theme import Theme
+    from easygame.util.timer import TimerHandle
 
 
 class Game:
@@ -106,7 +107,7 @@ class Game:
 
         from easygame.input import InputManager
         import easygame.util.tween as _tween_mod
-        from easygame.util.timer import TimerHandle, TimerManager
+        from easygame.util.timer import TimerManager
 
         self._input = InputManager()
 
@@ -455,12 +456,12 @@ class Game:
 
         self._scene_stack.begin_tick()
 
-        for event in input_events:
+        for ev in input_events:
             top = self._scene_stack.top()
             if top is not None:
                 # Populate world_x/world_y before any handler sees the event.
                 camera = getattr(top, "camera", None)
-                event = _with_world_coords(event, camera)
+                event = _with_world_coords(ev, camera)
 
                 # HUD gets first crack at input.
                 if (

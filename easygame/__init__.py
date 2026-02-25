@@ -64,6 +64,7 @@ from easygame.ui import (
     Tooltip,
 )
 from easygame.util.fsm import StateMachine
+from easygame.util.timer import TimerHandle
 from easygame.util.tween import Ease, tween
 
 __all__ = [
@@ -120,6 +121,7 @@ __all__ = [
     "Style",
     "TabGroup",
     "TextBox",
+    "TimerHandle",
     "Theme",
     "Tooltip",
     "WindowEvent",
