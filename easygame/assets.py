@@ -65,7 +65,7 @@ class AssetManager:
         self._base_path = Path(base_path)
         self._scale_factor = scale_factor
         self._image_cache: dict[str, Any] = {}
-        self._swapped_cache: dict[tuple, Any] = {}  # (name, color_swap.cache_key()) -> handle
+        self._swapped_cache: dict[tuple[str, tuple[Any, ...]], Any] = {}  # (name, color_swap.cache_key()) -> handle
         self._frames_cache: dict[str, list[str]] = {}
         self._sound_cache: dict[str, Any] = {}
         # Music paths are cached (not handles) because streaming sources
@@ -207,11 +207,11 @@ class AssetManager:
 
     #: Extension search order for sound effects (WAV preferred — short,
     #: uncompressed, low latency).
-    _SOUND_EXTENSIONS = [".wav", ".ogg", ".mp3"]
+    _SOUND_EXTENSIONS: tuple[str, ...] = (".wav", ".ogg", ".mp3")
 
     #: Extension search order for music tracks (OGG preferred — compressed,
     #: streaming-friendly, patent-free).
-    _MUSIC_EXTENSIONS = [".ogg", ".wav", ".mp3"]
+    _MUSIC_EXTENSIONS: tuple[str, ...] = (".ogg", ".wav", ".mp3")
 
     def sound(self, name: str) -> Any:
         """Load a sound effect by name (cached).
@@ -266,7 +266,7 @@ class AssetManager:
         self,
         name: str,
         base_dir: Path,
-        extensions: list[str],
+        extensions: tuple[str, ...],
         kind: str,
     ) -> Path:
         """Try *extensions* in order under *base_dir* and return the first hit.

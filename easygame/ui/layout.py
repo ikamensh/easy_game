@@ -64,7 +64,8 @@ def compute_anchor_position(
         x = parent_x + parent_w - child_w - margin
         y = parent_y + parent_h - child_h - margin
     else:
-        raise ValueError(f"Unknown anchor: {anchor}")
+        valid = ", ".join(a.name for a in Anchor)
+        raise ValueError(f"Unknown anchor: {anchor}; valid values: {valid}")
     return (x, y)
 
 
@@ -104,7 +105,8 @@ def compute_flow_layout(
             x += cw + spacing
         return result
 
-    raise ValueError(f"Unknown layout: {layout}")
+    valid = ", ".join(lay.name for lay in Layout)
+    raise ValueError(f"Unknown layout: {layout}; valid values: {valid}")
 
 
 def compute_content_size(
@@ -127,4 +129,5 @@ def compute_content_size(
         width = sum(cw for cw, _ in children_sizes) + (len(children_sizes) - 1) * spacing + 2 * padding
         return (width, height)
 
-    raise ValueError(f"Unknown layout: {layout}")
+    valid = ", ".join(lay.name for lay in Layout)
+    raise ValueError(f"Unknown layout: {layout}; valid values: {valid}")

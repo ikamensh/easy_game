@@ -23,6 +23,7 @@ import random
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from easygame.input import InputEvent
     from easygame.rendering.sprite import Sprite
 
 
@@ -67,6 +68,7 @@ class Camera:
         # Pan-to tween ids (so we can cancel on follow / center_on / scroll).
         self._pan_tween_x: int | None = None
         self._pan_tween_y: int | None = None
+        self._tween_manager: Any = None  # set by pan_to() from Game's manager
 
         # Shake effect.
         self._shake_intensity: float = 0.0
@@ -198,7 +200,7 @@ class Camera:
         self._key_scroll_enabled = False
         self._held_dirs.clear()
 
-    def handle_input(self, event: Any) -> bool:
+    def handle_input(self, event: InputEvent) -> bool:
         """Process directional key events for key scroll.
 
         Called by :meth:`Game.tick` before scene dispatch when the scene
@@ -279,7 +281,7 @@ class Camera:
         x: float,
         y: float,
         duration: float,
-        easing: Any = None,
+        ease: Any = None,
     ) -> None:
         """Smoothly pan the viewport center to ``(x, y)`` over *duration* seconds.
 
@@ -290,18 +292,23 @@ class Camera:
             x:        Target world x to center on.
             y:        Target world y to center on.
             duration: Seconds for the pan animation.
-            easing:   An :class:`~easygame.util.tween.Ease` value (default
+            ease:     An :class:`~easygame.util.tween.Ease` value (default
                       ``Ease.EASE_IN_OUT``).
         """
         if not math.isfinite(x) or not math.isfinite(y):
             raise ValueError("pan_to requires finite x and y")
+        from easygame.util import tween as tween_mod
         from easygame.util.tween import Ease, tween
+
+        # Capture the instance tween manager so _cancel_pan doesn't rely on
+        # the module-level global (which may point to a different Game).
+        self._tween_manager = tween_mod._tween_manager
 
         self._cancel_pan()
         self._follow_target = None
 
-        if easing is None:
-            easing = Ease.EASE_IN_OUT
+        if ease is None:
+            ease = Ease.EASE_IN_OUT
 
         # Target top-left so that (x, y) is centered.
         target_x = x - self._vw / 2
@@ -315,11 +322,11 @@ class Camera:
 
         self._pan_tween_x = tween(
             self, "_x", self._x, target_x, duration,
-            ease=easing,
+            ease=ease,
         )
         self._pan_tween_y = tween(
             self, "_y", self._y, target_y, duration,
-            ease=easing,
+            ease=ease,
             on_complete=self._on_pan_complete,
         )
 
@@ -429,9 +436,7 @@ class Camera:
 
     def _cancel_pan(self) -> None:
         """Cancel any active pan tweens."""
-        from easygame.util import tween as tween_mod
-
-        mgr = tween_mod._tween_manager
+        mgr = self._tween_manager
         if mgr is not None:
             if self._pan_tween_x is not None:
                 mgr.cancel(self._pan_tween_x)

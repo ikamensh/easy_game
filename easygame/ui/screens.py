@@ -32,6 +32,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable
 
+from easygame.input import InputEvent
 from easygame.scene import Scene
 from easygame.ui.components import Button, Label, Panel
 from easygame.ui.layout import Anchor, Layout
@@ -86,7 +87,7 @@ class MessageScreen(Scene):
         ))
         self.ui.add(bg)
 
-    def handle_input(self, event: Any) -> bool:
+    def handle_input(self, event: InputEvent) -> bool:
         """Dismiss on any key press or mouse click.  Consume all events."""
         if event.type in ("key_press", "click"):
             self._dismiss()
@@ -151,7 +152,7 @@ class ChoiceScreen(Scene):
             container.add(Button(text, on_click=make_handler(idx)))
         self.ui.add(container)
 
-    def handle_input(self, event: Any) -> bool:
+    def handle_input(self, event: InputEvent) -> bool:
         """Number keys select choices; Escape cancels.  Consume all events."""
         if event.type == "key_press":
             if event.key == "escape" or event.action == "cancel":
@@ -218,7 +219,7 @@ class ConfirmDialog(Scene):
         container.add(button_row)
         self.ui.add(container)
 
-    def handle_input(self, event: Any) -> bool:
+    def handle_input(self, event: InputEvent) -> bool:
         """Enter confirms, Escape cancels.  Consume all events."""
         if event.type == "key_press":
             if event.key == "return" or event.action == "confirm":
@@ -327,7 +328,7 @@ class SaveLoadScreen(Scene):
         container.add(Button("Back", on_click=self._back))
         self.ui.add(container)
 
-    def handle_input(self, event: Any) -> bool:
+    def handle_input(self, event: InputEvent) -> bool:
         """Escape pops.  Consume all events — modal."""
         if event.type == "key_press":
             if event.key == "escape" or event.action == "cancel":
@@ -552,7 +553,7 @@ class _SettingsScene(Scene):
         container.add(Button("Back", on_click=self._back))
         self.ui.add(container)
 
-    def handle_input(self, event: Any) -> bool:
+    def handle_input(self, event: InputEvent) -> bool:
         """Handle key rebinding in listening mode.  Consume all events."""
         if event.type == "key_press":
             if self._listening_action is not None:
@@ -561,6 +562,8 @@ class _SettingsScene(Scene):
                     self._cancel_listening()
                     return True
                 # Rebind the action to the pressed key.
+                # event.key is always set for key_press events.
+                assert event.key is not None
                 self.game.input.bind(self._listening_action, event.key)
                 if self._listening_button is not None:
                     self._listening_button.text = f"[{event.key.upper()}]"

@@ -742,6 +742,53 @@ class TestGrid:
         sel_rects = [r for r in backend.rects if r["color"] == game.theme.selected_color]
         assert len(sel_rects) == 1
 
+    # -- Bug-fix tests -------------------------------------------------
+
+    def test_cell_at_zero_cell_size_no_crash(self) -> None:
+        """_cell_at returns None (no ZeroDivisionError) when cell_size=(0,0) and spacing=0."""
+        grid = Grid(2, 2, cell_size=(0, 0), spacing=0, style=Style(padding=0))
+        grid.compute_layout(0, 0, 100, 100)
+        result = grid._cell_at(5, 5)
+        assert result is None
+
+    def test_cell_at_zero_width_cell(self) -> None:
+        """_cell_at returns None when cell width is 0 (stride_x == spacing only)."""
+        grid = Grid(2, 2, cell_size=(0, 64), spacing=4, style=Style(padding=0))
+        grid.compute_layout(0, 0, 100, 200)
+        result = grid._cell_at(2, 10)
+        assert result is None
+
+    def test_cell_at_zero_height_cell(self) -> None:
+        """_cell_at returns None when cell height is 0 (stride_y == spacing only)."""
+        grid = Grid(2, 2, cell_size=(64, 0), spacing=4, style=Style(padding=0))
+        grid.compute_layout(0, 0, 200, 100)
+        result = grid._cell_at(10, 2)
+        assert result is None
+
+    def test_selected_setter_empty_grid_zero_columns(self) -> None:
+        """Setting selected on a grid with 0 columns sets None."""
+        grid = Grid(0, 2)
+        grid.selected = (0, 0)
+        assert grid.selected is None
+
+    def test_selected_setter_empty_grid_zero_rows(self) -> None:
+        """Setting selected on a grid with 0 rows sets None."""
+        grid = Grid(3, 0)
+        grid.selected = (1, 0)
+        assert grid.selected is None
+
+    def test_selected_setter_empty_grid_both_zero(self) -> None:
+        """Setting selected on a 0×0 grid sets None."""
+        grid = Grid(0, 0)
+        grid.selected = (0, 0)
+        assert grid.selected is None
+
+    def test_selected_setter_none_on_empty_grid(self) -> None:
+        """Setting selected to None on an empty grid works fine."""
+        grid = Grid(0, 0)
+        grid.selected = None
+        assert grid.selected is None
+
 
 # ==================================================================
 # 6. Tooltip (~12 tests)
@@ -934,10 +981,16 @@ class TestTabGroup:
         assert c2.visible is True
 
     def test_select_tab_unknown_raises(self) -> None:
-        """select_tab with unknown label raises KeyError."""
+        """select_tab with unknown label raises KeyError listing available tabs."""
         tg = TabGroup({"A": Panel()})
-        with pytest.raises(KeyError, match="No tab named 'Z'"):
+        with pytest.raises(KeyError, match="No tab named 'Z'.*available tabs.*'A'"):
             tg.select_tab("Z")
+
+    def test_select_tab_error_lists_multiple_tabs(self) -> None:
+        """select_tab error message lists all available tab names."""
+        tg = TabGroup({"Alpha": Panel(), "Beta": Panel(), "Gamma": Panel()})
+        with pytest.raises(KeyError, match="available tabs.*'Alpha'.*'Beta'.*'Gamma'"):
+            tg.select_tab("Delta")
 
     def test_active_tab_setter(self) -> None:
         """active_tab setter delegates to select_tab."""

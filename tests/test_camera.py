@@ -841,13 +841,13 @@ class TestPanTo:
         assert cam._pan_tween_y is None
 
     def test_pan_to_with_custom_easing(self, game: Game) -> None:
-        """pan_to accepts a custom easing function."""
+        """pan_to accepts a custom ease value."""
         from easygame.util.tween import Ease
 
         cam = Camera((800, 600))
         cam.center_on(400, 300)
 
-        cam.pan_to(800, 600, duration=1.0, easing=Ease.LINEAR)
+        cam.pan_to(800, 600, duration=1.0, ease=Ease.LINEAR)
         game.tick(dt=0.5)
 
         # With LINEAR easing, at 50% time we should be ~50% of the way.
@@ -1251,3 +1251,86 @@ class TestWorldBounds:
         bounds = (10, 20, 1000, 2000)
         cam = Camera((800, 600), world_bounds=bounds)
         assert cam.world_bounds == bounds
+
+
+# ==================================================================
+# Bug-fix: handle_input InputEvent type hint
+# ==================================================================
+
+
+class TestHandleInputTypeHint:
+
+    def test_handle_input_accepts_input_event(self, game: Game) -> None:
+        """Camera.handle_input works with InputEvent objects."""
+        cam = Camera((800, 600))
+        cam.enable_key_scroll(speed=300)
+        event = InputEvent(type="key_press", key="right", action="right")
+        result = cam.handle_input(event)
+        assert result is True
+        assert "right" in cam._held_dirs
+
+
+# ==================================================================
+# Bug-fix: pan_to ease parameter rename
+# ==================================================================
+
+
+class TestPanToEaseRename:
+
+    def test_pan_to_ease_keyword_works(self, game: Game) -> None:
+        """pan_to accepts 'ease' keyword (renamed from 'easing')."""
+        from easygame.util.tween import Ease
+
+        cam = Camera((800, 600))
+        cam.center_on(400, 300)
+        cam.pan_to(800, 600, duration=1.0, ease=Ease.LINEAR)
+        game.tick(dt=1.0)
+        assert abs(cam.x - 400) < 1e-6
+
+    def test_pan_to_default_ease(self, game: Game) -> None:
+        """pan_to with no ease defaults to EASE_IN_OUT."""
+        cam = Camera((800, 600))
+        cam.center_on(400, 300)
+        cam.pan_to(800, 600, duration=1.0)
+        game.tick(dt=1.0)
+        assert abs(cam.x - 400) < 1e-6
+
+
+# ==================================================================
+# Bug-fix: _cancel_pan uses instance tween manager
+# ==================================================================
+
+
+class TestCancelPanInstanceManager:
+
+    def test_cancel_pan_uses_instance_tween_manager(self, game: Game) -> None:
+        """_cancel_pan uses the tween manager captured at pan_to time."""
+        cam = Camera((800, 600))
+        cam.center_on(400, 300)
+
+        cam.pan_to(800, 600, duration=1.0)
+        # Verify the instance reference was captured
+        assert cam._tween_manager is not None
+        assert cam._tween_manager is game._tween_manager
+
+    def test_cancel_pan_before_any_pan_is_safe(self) -> None:
+        """_cancel_pan is safe when no pan has been started."""
+        cam = Camera((800, 600))
+        assert cam._tween_manager is None
+        cam._cancel_pan()  # should not raise
+        assert cam._pan_tween_x is None
+        assert cam._pan_tween_y is None
+
+    def test_cancel_pan_actually_cancels_tweens(self, game: Game) -> None:
+        """_cancel_pan cancels the tween so the camera stops moving."""
+        cam = Camera((800, 600))
+        cam.center_on(400, 300)
+
+        cam.pan_to(800, 600, duration=2.0)
+        game.tick(dt=0.5)
+        mid_x = cam.x
+
+        cam._cancel_pan()
+        game.tick(dt=1.0)
+        # Camera should not have moved further
+        assert abs(cam.x - mid_x) < 1e-6

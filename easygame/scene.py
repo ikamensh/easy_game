@@ -166,7 +166,8 @@ class Scene:
         Accepts a timer ID or TimerHandle. If a TimerHandle is given, cancels
         the entire chain. Safe to call on already-fired or already-cancelled.
         """
-        self._get_owned_timers().discard(timer_id)
+        if isinstance(timer_id, TimerHandle):
+            self._get_owned_timers().discard(timer_id)
         self.game.cancel(timer_id)
 
     def _cleanup_owned_timers(self) -> None:
@@ -180,12 +181,12 @@ class Scene:
     # Particle emitter ownership
     # ------------------------------------------------------------------
 
-    def _get_owned_emitters(self) -> set:
+    def _get_owned_emitters(self) -> set[Any]:
         """Return the owned-emitter set, creating it lazily."""
         try:
             return self._owned_emitters  # type: ignore[has-type]
         except AttributeError:
-            self._owned_emitters: set = set()
+            self._owned_emitters: set[Any] = set()
             return self._owned_emitters
 
     def add_emitter(self, emitter: Any) -> Any:
@@ -302,7 +303,7 @@ class Scene:
     # Save / Load
     # ------------------------------------------------------------------
 
-    def get_save_state(self) -> dict:
+    def get_save_state(self) -> dict[str, Any]:
         """Return a JSON-serializable dict of scene state.
 
         Called by :meth:`Game.save`.  Only the **top** scene's state is
@@ -312,7 +313,7 @@ class Scene:
         """
         return {}
 
-    def load_save_state(self, state: dict) -> None:
+    def load_save_state(self, state: dict[str, Any]) -> None:
         """Restore scene state from a previously saved dict.
 
         Called by game code **after** :meth:`on_enter` to reinitialise

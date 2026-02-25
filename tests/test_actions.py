@@ -972,6 +972,88 @@ class TestEdgeCases:
 # ------------------------------------------------------------------
 
 
+# ------------------------------------------------------------------
+# Bug-fix: MoveTo negative speed
+# ------------------------------------------------------------------
+
+
+class TestMoveToNegativeSpeed:
+    def test_move_to_negative_speed_raises(self) -> None:
+        """MoveTo with negative speed raises ValueError at construction."""
+        with pytest.raises(ValueError, match="speed must be >= 0"):
+            MoveTo((200, 300), speed=-100)
+
+    def test_move_to_zero_speed_at_target_completes(
+        self, sprite: Sprite, game: Game,
+    ) -> None:
+        """MoveTo with speed=0 at target completes immediately."""
+        sprite.do(MoveTo((100, 300), speed=0))
+        game.tick(dt=0.016)
+        assert sprite not in game._action_sprites
+
+    def test_move_to_zero_speed_not_at_target_stays(
+        self, sprite: Sprite, game: Game,
+    ) -> None:
+        """MoveTo with speed=0 not at target never moves (step=0 each frame)."""
+        sprite.do(MoveTo((500, 300), speed=0))
+        game.tick(dt=1.0)
+        # Sprite should still be running (step=0 < dist, never arrives)
+        assert sprite in game._action_sprites
+        assert sprite._x == 100  # hasn't moved
+
+
+# ------------------------------------------------------------------
+# Bug-fix: Sequence/Parallel children type validation
+# ------------------------------------------------------------------
+
+
+class TestChildValidation:
+    def test_sequence_rejects_non_action_child(self) -> None:
+        """Sequence raises TypeError if a child is not an Action."""
+        with pytest.raises(TypeError, match="Sequence child 0"):
+            Sequence("not_an_action")
+
+    def test_sequence_rejects_non_action_later_child(self) -> None:
+        """Sequence catches non-Action children beyond the first."""
+        with pytest.raises(TypeError, match="Sequence child 1"):
+            Sequence(Delay(0.1), 42)
+
+    def test_parallel_rejects_non_action_child(self) -> None:
+        """Parallel raises TypeError if a child is not an Action."""
+        with pytest.raises(TypeError, match="Parallel child 0"):
+            Parallel(None)
+
+    def test_parallel_rejects_non_action_later_child(self) -> None:
+        """Parallel catches non-Action children beyond the first."""
+        with pytest.raises(TypeError, match="Parallel child 2"):
+            Parallel(Delay(0.1), Delay(0.2), [1, 2, 3])
+
+    def test_sequence_accepts_valid_actions(self) -> None:
+        """Sequence accepts proper Action subclasses without error."""
+        seq = Sequence(Delay(0.1), Do(lambda: None), MoveTo((0, 0), speed=1))
+        assert len(seq._actions) == 3
+
+    def test_parallel_accepts_valid_actions(self) -> None:
+        """Parallel accepts proper Action subclasses without error."""
+        par = Parallel(Delay(0.1), Do(lambda: None))
+        assert len(par._actions) == 2
+
+    def test_sequence_empty_is_valid(self) -> None:
+        """Sequence with no children is valid."""
+        seq = Sequence()
+        assert len(seq._actions) == 0
+
+    def test_parallel_empty_is_valid(self) -> None:
+        """Parallel with no children is valid."""
+        par = Parallel()
+        assert len(par._actions) == 0
+
+
+# ------------------------------------------------------------------
+# Import
+# ------------------------------------------------------------------
+
+
 def test_actions_importable_from_easygame() -> None:
     from easygame import (
         Delay,

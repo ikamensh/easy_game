@@ -185,6 +185,8 @@ class Sprite:
     def position(self, value: tuple[float, float]) -> None:
         self._x = float(value[0])
         self._y = float(value[1])
+        if math.isnan(self._x) or math.isnan(self._y):
+            return
         self._sync_to_backend()
         if not self._removed:
             self._backend.set_sprite_order(
@@ -533,6 +535,8 @@ class Sprite:
     def _sync_to_backend(self, *, image: Any | None = None) -> None:
         """Push current visual state to the backend."""
         if self._removed:
+            return
+        if math.isnan(self._x) or math.isnan(self._y):
             return
         dx, dy = _anchor_offset(self._anchor, self._img_w, self._img_h)
         draw_x = int(self._x - dx)

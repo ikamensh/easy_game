@@ -111,6 +111,7 @@ class AudioManager:
         # Crossfade state
         self._crossfade_old_player: Any | None = None
         self._crossfade_tween_ids: list[int] = []
+        self._tween_manager: Any = None  # set when crossfade tweens are created
 
         # Sound pools
         self._pools: dict[str, list[str]] = {}      # pool_name -> [sound_names]
@@ -263,7 +264,12 @@ class AudioManager:
         # Use a proxy object for tweening (tween system sets attributes).
         fade = _CrossfadeProxy(self, old_player, new_player, old_base_volume)
 
+        from easygame.util import tween as tween_mod
         from easygame.util.tween import Ease, tween
+
+        # Capture the instance tween manager so _cancel_crossfade doesn't
+        # rely on the module-level global.
+        self._tween_manager = tween_mod._tween_manager
 
         # Tween old volume from current base → 0.0.
         tid_out = tween(
@@ -328,9 +334,7 @@ class AudioManager:
 
     def _cancel_crossfade(self) -> None:
         """Cancel an in-progress crossfade.  Stop the old player immediately."""
-        import easygame.util.tween as tween_mod
-
-        mgr = tween_mod._tween_manager
+        mgr = self._tween_manager
         if mgr is not None:
             for tid in self._crossfade_tween_ids:
                 mgr.cancel(tid)

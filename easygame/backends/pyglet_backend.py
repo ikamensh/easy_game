@@ -13,7 +13,7 @@ later stages.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from easygame.backends.base import (
     Event,
@@ -102,7 +102,7 @@ class PygletBackend:
 
         # Frame-local text labels, rects, and image sprites (cleared each begin_frame)
         self._text_labels: list[pyglet.text.Label] = []
-        self._rect_shapes: list = []
+        self._rect_shapes: list[Any] = []
         self._image_sprites: list[pyglet.sprite.Sprite] = []
 
         # Persistent group for UI overlays (draw_rect / draw_text).
@@ -183,7 +183,7 @@ class PygletBackend:
         self.logical_width = width
         self.logical_height = height
 
-        self.window = pyglet.window.Window(
+        self.window = pyglet.window.Window(  # type: ignore[abstract]
             width=width,
             height=height,
             caption=title,
@@ -353,17 +353,17 @@ class PygletBackend:
         a: int,
         width: int,
         height: int,
-    ):
+    ) -> Any:
         """Create a solid-color image (PygletBackend-specific, for demos)."""
         import pyglet
         pattern = pyglet.image.SolidColorImagePattern((r, g, b, a))
         return pattern.create_image(width, height)
 
-    def load_image(self, path: str):
+    def load_image(self, path: str) -> Any:
         import pyglet
         return pyglet.image.load(path)
 
-    def load_image_from_pil(self, pil_image):
+    def load_image_from_pil(self, pil_image: Any) -> Any:
         """Create a pyglet image from a PIL Image (RGBA)."""
         import pyglet
         raw = pil_image.tobytes()
@@ -379,7 +379,7 @@ class PygletBackend:
 
     def create_sprite(
         self,
-        image_handle,
+        image_handle: Any,
         layer_order: int,
     ) -> int:
         import pyglet
@@ -398,7 +398,7 @@ class PygletBackend:
         x: int,
         y: int,
         *,
-        image=None,
+        image: Any | None = None,
         opacity: int = 255,
         visible: bool = True,
         tint: tuple[float, float, float] = (1.0, 1.0, 1.0),
@@ -418,7 +418,7 @@ class PygletBackend:
         self._sprites[sprite_id].delete()
         del self._sprites[sprite_id]
 
-    def get_image_size(self, image_handle) -> tuple[int, int]:
+    def get_image_size(self, image_handle: Any) -> tuple[int, int]:
         """Return ``(width, height)`` of a loaded pyglet image."""
         return (image_handle.width, image_handle.height)
 
@@ -431,7 +431,7 @@ class PygletBackend:
         pyg = self._sprites[sprite_id]
         pyg.group = pyglet.graphics.Group(order=order)
 
-    def capture_frame(self):
+    def capture_frame(self) -> Any:
         """Return a PIL Image of the current framebuffer via glReadPixels.
 
         Call after tick() — reads from the front buffer (the frame just
@@ -457,11 +457,9 @@ class PygletBackend:
         glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
         glReadBuffer(GL_BACK_LEFT)  # restore default
         data = bytes(buffer)
-        # Pillow 10+ moved FLIP_TOP_BOTTOM to Image.Transpose; old attr removed
-        flip = getattr(
-            Image.Transpose, "FLIP_TOP_BOTTOM", getattr(Image, "FLIP_TOP_BOTTOM", 1)
+        return Image.frombytes("RGBA", (w, h), data).transpose(
+            Image.Transpose.FLIP_TOP_BOTTOM
         )
-        return Image.frombytes("RGBA", (w, h), data).transpose(flip)
 
     # ==================================================================
     # Backend protocol — rect and text rendering
@@ -530,8 +528,8 @@ class PygletBackend:
             x=int(phys_x),
             y=int(phys_y),
             color=color,
-            anchor_x=anchor_x,
-            anchor_y=anchor_y,
+            anchor_x=anchor_x,  # type: ignore[arg-type]  # protocol uses str, pyglet expects Literal
+            anchor_y=anchor_y,  # type: ignore[arg-type]  # protocol uses str, pyglet expects Literal
             batch=self.batch,
             group=self._ui_overlay_group,
         )
@@ -539,7 +537,7 @@ class PygletBackend:
 
     def draw_image(
         self,
-        image_handle,
+        image_handle: Any,
         x: int,
         y: int,
         width: int,
@@ -579,25 +577,25 @@ class PygletBackend:
     # Backend protocol — audio
     # ==================================================================
 
-    def load_sound(self, path: str):
+    def load_sound(self, path: str) -> Any:
         import pyglet
         return pyglet.media.load(path, streaming=False)
 
-    def play_sound(self, handle, volume: float = 1.0) -> None:
+    def play_sound(self, handle: Any, volume: float = 1.0) -> None:
         player = handle.play()
         player.volume = volume
 
-    def load_music(self, path: str):
+    def load_music(self, path: str) -> Any:
         import pyglet
         return pyglet.media.load(path, streaming=True)
 
     def play_music(
         self,
-        handle,
+        handle: Any,
         *,
         loop: bool = True,
         volume: float = 1.0,
-    ):
+    ) -> Any:
         import pyglet
         player = pyglet.media.Player()
         player.queue(handle)
@@ -606,10 +604,10 @@ class PygletBackend:
         player.play()
         return player
 
-    def set_player_volume(self, player_id, volume: float) -> None:
+    def set_player_volume(self, player_id: Any, volume: float) -> None:
         player_id.volume = volume
 
-    def stop_player(self, player_id) -> None:
+    def stop_player(self, player_id: Any) -> None:
         player_id.pause()
         player_id.delete()
 
@@ -619,11 +617,13 @@ class PygletBackend:
 
     def set_cursor(
         self,
-        image_handle,
+        image_handle: Any | None,
         hotspot_x: int = 0,
         hotspot_y: int = 0,
     ) -> None:
         """Set a custom cursor image. None restores system default."""
+        if self.window is None:
+            return
         import pyglet
         if image_handle is None:
             self.window.set_mouse_cursor(None)
@@ -637,4 +637,6 @@ class PygletBackend:
 
     def set_cursor_visible(self, visible: bool) -> None:
         """Show or hide the mouse cursor."""
+        if self.window is None:
+            return
         self.window.set_mouse_visible(visible)

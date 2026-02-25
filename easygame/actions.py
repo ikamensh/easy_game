@@ -86,6 +86,11 @@ class Sequence(Action):
     """
 
     def __init__(self, *actions: Action) -> None:
+        for i, action in enumerate(actions):
+            if not isinstance(action, Action):
+                raise TypeError(
+                    f"Sequence child {i} is {type(action).__name__}, expected Action"
+                )
         self._actions = list(actions)
         self._index = 0
         self._sprite: Sprite | None = None
@@ -132,6 +137,11 @@ class Parallel(Action):
     """
 
     def __init__(self, *actions: Action) -> None:
+        for i, action in enumerate(actions):
+            if not isinstance(action, Action):
+                raise TypeError(
+                    f"Parallel child {i} is {type(action).__name__}, expected Action"
+                )
         self._actions = list(actions)
         self._done: list[bool] = [False] * len(actions)
 
@@ -258,6 +268,8 @@ class MoveTo(Action):
     """
 
     def __init__(self, position: tuple[float, float], speed: float) -> None:
+        if speed < 0:
+            raise ValueError("speed must be >= 0")
         self._target_x = float(position[0])
         self._target_y = float(position[1])
         self._speed = speed
@@ -420,7 +432,8 @@ class Repeat(Action):
                 return True  # done all repetitions
             # Start fresh copy for next iteration.
             self._current = copy.deepcopy(self._action_template)
-            self._current.start(self._sprite)
+            if self._sprite is not None:
+                self._current.start(self._sprite)
         return False
 
     def stop(self) -> None:

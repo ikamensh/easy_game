@@ -633,3 +633,31 @@ class TestEdgeCases:
         loaded = m2.load(1)
         assert loaded is not None
         assert loaded["state"]["from"] == "m1"
+
+    def test_corrupted_save_error_includes_recovery_hint(
+        self, save_dir: Path,
+    ) -> None:
+        """SaveError message includes a recovery hint about deleting the file."""
+        from easygame.save import SaveError
+
+        save_dir.mkdir(parents=True, exist_ok=True)
+        corrupt_file = save_dir / "save_1.json"
+        corrupt_file.write_text("not valid json!!!", encoding="utf-8")
+
+        manager = SaveManager(save_dir)
+        with pytest.raises(SaveError, match="delete the file to clear this slot"):
+            manager.load(1)
+
+    def test_corrupted_save_error_includes_slot_and_path(
+        self, save_dir: Path,
+    ) -> None:
+        """SaveError message includes slot number and file path."""
+        from easygame.save import SaveError
+
+        save_dir.mkdir(parents=True, exist_ok=True)
+        corrupt_file = save_dir / "save_3.json"
+        corrupt_file.write_text("{bad", encoding="utf-8")
+
+        manager = SaveManager(save_dir)
+        with pytest.raises(SaveError, match="slot 3.*save_3.json"):
+            manager.load(3)

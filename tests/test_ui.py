@@ -1067,3 +1067,26 @@ class TestSceneIntegration:
         text_strs = [t["text"] for t in backend.texts]
         assert "Bottom" in text_strs
         assert "Top" in text_strs
+
+
+# ==================================================================
+# Bug-fix: error messages include valid enum values
+# ==================================================================
+
+
+class TestLayoutErrorMessages:
+
+    def test_anchor_error_includes_valid_values(self) -> None:
+        """compute_anchor_position error includes valid Anchor names."""
+        with pytest.raises(ValueError, match="valid values.*CENTER.*TOP_LEFT"):
+            compute_anchor_position("bogus", 0, 0, 100, 100, 50, 50)
+
+    def test_flow_layout_error_includes_valid_values(self) -> None:
+        """compute_flow_layout error includes valid Layout names."""
+        with pytest.raises(ValueError, match="valid values.*NONE.*VERTICAL.*HORIZONTAL"):
+            compute_flow_layout("bogus", 0, 0, 100, 100, [(50, 50)])
+
+    def test_content_size_error_includes_valid_values(self) -> None:
+        """compute_content_size error includes valid Layout names."""
+        with pytest.raises(ValueError, match="valid values.*NONE.*VERTICAL.*HORIZONTAL"):
+            compute_content_size("bogus", [(50, 50)])

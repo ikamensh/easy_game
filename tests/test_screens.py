@@ -765,6 +765,51 @@ class TestExports:
 
 
 # ---------------------------------------------------------------------------
+# Bug-fix: handle_input uses InputEvent type hint
+# ---------------------------------------------------------------------------
+
+
+class TestScreenInputEventTypeHint:
+    """Screens accept InputEvent (not Any) in handle_input."""
+
+    def test_message_screen_handle_input_signature(self) -> None:
+        """MessageScreen.handle_input type hint is InputEvent."""
+        import inspect
+        sig = inspect.signature(MessageScreen.handle_input)
+        param = sig.parameters["event"]
+        # The annotation should reference InputEvent (not Any)
+        ann = param.annotation
+        # With 'from __future__ import annotations' the annotation is a string
+        assert "InputEvent" in str(ann)
+
+    def test_choice_screen_handle_input_signature(self) -> None:
+        """ChoiceScreen.handle_input type hint is InputEvent."""
+        import inspect
+        sig = inspect.signature(ChoiceScreen.handle_input)
+        ann = sig.parameters["event"].annotation
+        assert "InputEvent" in str(ann)
+
+    def test_confirm_dialog_handle_input_signature(self) -> None:
+        """ConfirmDialog.handle_input type hint is InputEvent."""
+        import inspect
+        sig = inspect.signature(ConfirmDialog.handle_input)
+        ann = sig.parameters["event"].annotation
+        assert "InputEvent" in str(ann)
+
+    def test_message_screen_still_works_with_events(
+        self, game: Game, backend: MockBackend,
+    ) -> None:
+        """MessageScreen still dismisses correctly with InputEvent dispatch."""
+        game.push(Scene())
+        game.push(MessageScreen("Hello"))
+        assert len(game._scene_stack._stack) == 2
+
+        backend.inject_key("space")
+        game.tick(dt=0.016)
+        assert len(game._scene_stack._stack) == 1
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

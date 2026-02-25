@@ -37,7 +37,7 @@ class CursorManager:
             hotspot:     Pixel offset within the cursor image for the click point.
         """
         handle = self._assets.image(image_name)
-        self._cursors[name] = (handle, tuple(hotspot))
+        self._cursors[name] = (handle, (hotspot[0], hotspot[1]))
 
     def set(self, name: str) -> None:
         """Switch to a registered cursor.

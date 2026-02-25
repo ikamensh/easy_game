@@ -761,6 +761,9 @@ class Grid(Component):
     @selected.setter
     def selected(self, value: tuple[int, int] | None) -> None:
         if value is not None:
+            if self._columns <= 0 or self._rows <= 0:
+                self._selected = None
+                return
             col, row = value
             col = max(0, min(col, self._columns - 1))
             row = max(0, min(row, self._rows - 1))
@@ -922,6 +925,9 @@ class Grid(Component):
 
         cell_stride_x = self._cell_w + self._spacing
         cell_stride_y = self._cell_h + self._spacing
+
+        if cell_stride_x <= 0 or cell_stride_y <= 0:
+            return None
 
         col = int(rx // cell_stride_x)
         row = int(ry // cell_stride_y)
@@ -1208,7 +1214,10 @@ class TabGroup(Component):
         Raises ``KeyError`` if *label* does not exist.
         """
         if label not in self._tab_components:
-            raise KeyError(f"No tab named {label!r}")
+            available = ", ".join(repr(k) for k in self._tab_labels)
+            raise KeyError(
+                f"No tab named {label!r}; available tabs: {available}"
+            )
         self._active_tab = label
         self._sync_visibility()
         self._mark_layout_dirty()

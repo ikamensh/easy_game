@@ -15,6 +15,7 @@ Scene stack convenience methods (``push``, ``pop``, ``replace``,
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 from weakref import WeakSet
@@ -29,10 +30,13 @@ if TYPE_CHECKING:
     from easygame.backends.base import Backend
     from easygame.cursor import CursorManager
     from easygame.input import InputManager
+    from easygame.rendering.camera import Camera
     from easygame.save import SaveManager
     from easygame.ui.hud import HUD
     from easygame.ui.theme import Theme
     from easygame.util.timer import TimerHandle
+
+_logger = logging.getLogger(__name__)
 
 
 class Game:
@@ -100,13 +104,13 @@ class Game:
         self._assets: AssetManager | None = None
         self._audio: AudioManager | None = None
         self._theme: Theme | None = None
-        self._cursor: Any = None
+        self._cursor: CursorManager | None = None
         self._save_manager: SaveManager | None = None
         self._hud: HUD | None = None
-        self._animated_sprites: set = set()
-        self._all_sprites: WeakSet = WeakSet()
-        self._action_sprites: set = set()
-        self._particle_emitters: set = set()
+        self._animated_sprites: set[Any] = set()
+        self._all_sprites: WeakSet[Any] = WeakSet()
+        self._action_sprites: set[Any] = set()
+        self._particle_emitters: set[Any] = set()
 
         # Latest mouse position in logical screen coords (for camera edge scroll).
         self._mouse_x: float | None = None
@@ -289,7 +293,7 @@ class Game:
         scene_class_name = type(top).__name__
         self.save_manager.save(slot, state, scene_class_name)
 
-    def load(self, slot: int) -> dict | None:
+    def load(self, slot: int) -> dict[str, Any] | None:
         """Load save data from *slot* and restore the top scene's state.
 
         Reads the save file and calls
@@ -342,7 +346,7 @@ class Game:
 
     def show_sequence(
         self,
-        screens: list,
+        screens: list[Any],
         *,
         on_complete: Callable[[], Any] | None = None,
     ) -> None:
@@ -446,7 +450,7 @@ class Game:
         try:
             self._teardown()
         except Exception:
-            pass
+            _logger.exception("Error during Game.__del__ teardown")
 
     # ------------------------------------------------------------------
     # Tick — single frame (primary test entry point)
@@ -623,7 +627,7 @@ class Game:
     # ------------------------------------------------------------------
 
     def _sync_sprites_to_camera(
-        self, camera: Any,
+        self, camera: Camera,
     ) -> list[tuple[Any, int, int, bool]]:
         """Shift all sprite backend positions by the camera offset.
 

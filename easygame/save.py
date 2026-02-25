@@ -104,7 +104,8 @@ class SaveManager:
             return json.loads(text)  # type: ignore[no-any-return]
         except (json.JSONDecodeError, TypeError, OSError) as exc:
             raise SaveError(
-                f"Corrupted save file in slot {slot}: {path}"
+                f"Corrupted save file in slot {slot}: {path} "
+                f"(delete the file to clear this slot)"
             ) from exc
 
     def list_slots(self, count: int = 10) -> list[dict[str, Any] | None]:

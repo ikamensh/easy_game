@@ -73,12 +73,15 @@ class ColorSwap:
 
         img = Image.open(image_path).convert("RGBA")
         pixels = img.load()
-        assert pixels is not None
+        if pixels is None:
+            raise RuntimeError(
+                f"Failed to load pixel data from image: {image_path}"
+            )
         color_map = dict(zip(self.source_colors, self.target_colors))
 
         for y in range(img.height):
             for x in range(img.width):
-                r, g, b, a = pixels[x, y]
+                r, g, b, a = pixels[x, y]  # type: ignore[misc]  # PIL RGBA pixel is a tuple at runtime
                 rgb = (r, g, b)
                 if rgb in color_map:
                     tr, tg, tb = color_map[rgb]
