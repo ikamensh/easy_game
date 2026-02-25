@@ -596,8 +596,8 @@ class Game:
         """
         from easygame.rendering.sprite import _anchor_offset
 
-        cam_x = camera._x
-        cam_y = camera._y
+        cam_x = camera._x + camera.shake_offset_x
+        cam_y = camera._y + camera.shake_offset_y
         vw = camera._vw
         vh = camera._vh
 

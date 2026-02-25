@@ -208,6 +208,20 @@ class Camera:
 **Key scroll:** dispatched after HUD/UI, before `scene.handle_input()`. Frustum culling
 uses sprite image dimensions as margin.
 
+**Screen Shake:**
+```python
+Camera.shake(intensity: float, duration: float, decay: float = 1.0)
+```
+- **State:** `_shake_intensity`, `_shake_duration`, `_shake_elapsed`, `_shake_decay`,
+  `_shake_offset_x`, `_shake_offset_y` — all zeroed when inactive.
+- **Behavior:** Each frame in `update(dt)`, a random offset is computed:
+  `remaining = (1 - elapsed/duration) ** decay`, offset = `random(-remaining, remaining) * intensity`.
+  When `elapsed >= duration`, shake ends and offsets reset to zero.
+- **Composition:** Shake offset is **additive** to camera position during the sync pass.
+  Does NOT mutate `_x`/`_y` — camera's logical position stays clean for follow/pan/scroll.
+- **Public read-only:** `shake_offset_x`, `shake_offset_y` — consumed by the game sync
+  pass to shift all sprites without polluting camera position state.
+
 ## Animation
 
 ```python
