@@ -37,7 +37,7 @@ from easygame.rendering import Camera, ColorSwap, get_palette, register_palette
 from easygame.rendering.layers import RenderLayer, SpriteAnchor
 from easygame.rendering.particles import ParticleEmitter
 from easygame.rendering.sprite import Sprite
-from easygame.save import SaveManager
+from easygame.save import SaveError, SaveManager
 from easygame.scene import Scene
 from easygame.ui import (
     Anchor,
@@ -111,6 +111,7 @@ __all__ = [
     "Remove",
     "RenderLayer",
     "Repeat",
+    "SaveError",
     "SaveLoadScreen",
     "SaveManager",
     "Scene",

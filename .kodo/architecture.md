@@ -870,3 +870,21 @@ Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
 - FSM `on_exit` callback triggering event — re-entrant, no crash
 - FSM `on_enter` exception — propagates correctly
 - `StateMachine(states=[])` — raises ValueError
+
+---
+
+## Triage Verification Notes (Stage 4)
+
+**Confirmed real bugs (for Stage 5 fix pass):**
+- Grid `_cell_at` divides by zero when `cell_size=(0,0)` + `spacing=0`
+- `MoveTo` with negative speed → infinite movement away from target
+- `Sequence`/`Parallel` accept non-Action children → late `AttributeError`
+- NaN sprite positions → `ValueError` in `_sync_to_backend` at `int(nan)`
+- `pyglet_backend.py:629-640` — `self.window` can be `None` after `quit()`
+- `Camera.pan_to` parameter named `easing` vs `ease` everywhere else
+
+**Phantom findings corrected:**
+- Static F4 (`actions.py:423`): control flow guarantees `self._sprite` is non-None when reached. Mypy false positive → changed to skip.
+- API F1 (`SaveError` not exported): `SaveError` is already in `__init__.py` imports and `__all__`. Phantom → changed to skip.
+
+**Coverage gaps filled:** F71-F82 (deprecated Callable imports, style-only → skip), F87-F92 (Any-typed parameters, mostly duplicates of existing batch fixes).
