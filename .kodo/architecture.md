@@ -769,10 +769,30 @@ Coverage gap is acceptable for a TD game. Future tutorials would cover remaining
 
 ---
 
+## Triage Decisions (Stage 5)
+
+Triaged 45 findings from static analysis, adversarial testing, API audit, and architecture
+review. **13 fix, 31 skip, 1 needs-decision.** Key lessons:
+
+- **Most mypy/ruff findings are noise** — Pillow stub inaccuracies, pyglet abstract class
+  stubs, type-narrowing gaps. Only `color_swap.py:75` (PixelAccess None) is a real guard.
+- **Image.FLIP_TOP_BOTTOM works at runtime** (Pillow 11.3.0, no deprecation warning).
+  Triage marked as fix but should be skip — harmless either way.
+- **Real bugs confirmed:** scene re-entrancy (on_exit→pop), component self-add cycle,
+  tween missing property on slotted objects, camera pan_to NaN (vs center_on validates).
+- **Resource leaks confirmed:** module globals never cleared after run(), particle emitters
+  survive scene exit, camera pan tweens not cancelled on scene cleanup.
+- **Architecture: `list.pop(0)` in flush_pending_ops** → switch to deque for O(1).
+- **Dead code:** `AssetManager._load_image` (4 lines, zero callers).
+- **Skip rationale:** style-only issues, documented behavior (Audio KeyError), test imports,
+  docstring gaps, and Theme complexity are all deferred.
+
+---
+
 ## Edge Case Decisions (Stage 2)
 
-Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests).
-Seven issues where the framework lacks input validation or clamping.
+Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
+`tests/test_adversarial.py`, 31 tests). **1251 tests passing.**
 
 ### Desired Behaviors (to be implemented as fixes)
 
@@ -785,6 +805,17 @@ Seven issues where the framework lacks input validation or clamping.
 | 5 | `actions.py:390-393` | `Repeat(times=0)` runs child once | Treat `times=0` as no-op: skip `start()` on child, `update()` returns `True` immediately |
 | 6 | `rendering/camera.py:125-134` | `center_on()` accepts NaN/Inf | Validate `if not math.isfinite(x) or not math.isfinite(y): raise ValueError` |
 | 7 | `save.py:92-93` | `load()` leaks `json.JSONDecodeError` | Add `SaveError(Exception)`, wrap `json.loads` in try/except, raise `SaveError("Corrupted save file")` |
+
+### Adversarial Findings (from `tests/test_adversarial.py`)
+
+| # | Module | Issue | Severity | Desired Behavior |
+|---|--------|-------|----------|------------------|
+| F1 | `scene.py:406-415` | `on_exit()` calling `game.pop()` → RecursionError | bug | Add re-entrancy guard (`_in_pop` flag); defer nested pop to pending ops |
+| F2 | `ui/component.py:110` | `component.add(self)` → RecursionError (cycle) | bug | Guard: `if child is self: raise ValueError("cannot add self")` |
+| F3 | `util/tween.py:147` | `setattr` on slotted object missing property → AttributeError at update time | bug | Validate `hasattr(target, prop)` at tween creation |
+| F4 | `rendering/camera.py:277` | `pan_to(NaN, NaN)` silently corrupts state | bug | Validate `math.isfinite()` like `center_on()` does |
+| F5 | `audio.py:135` | Unknown channel → KeyError (acceptable, documented) | hardening | Optional: custom `UnknownChannelError` |
+| F6 | `util/timer.py:196` | `.then()` callback exception propagates to tick | style | Document or optionally catch+log |
 
 ### Edge Cases That Already Work (no findings)
 
@@ -808,3 +839,18 @@ Seven issues where the framework lacks input validation or clamping.
 - `MouseEvent` with negative coords — translates without error
 - `SaveManager.load()` non-existent slot — returns `None`
 - `SaveManager.delete()` non-existent slot — no-op
+- `sprite.remove()` inside `Do()` callback — safe, sprite deregistered
+- `sprite.do()` inside own action callback — no crash (new action replaces)
+- `tween(duration=0)` — completes immediately, fires on_complete
+- `cancel_by_target()` with no active tweens — no-op
+- Two tweens on same property — last-created wins (overwrites per frame)
+- `Camera.follow()` removed sprite — clears follow target, no crash
+- `Camera.pan_to(duration=0)` — completes immediately
+- Inverted world bounds (left > right) — clamps without crash
+- `Component.remove()` non-child — no-op
+- `Component.compute_layout(0,0,0,0)` — handles zero bounds
+- Draggable component with `_game=None` — drag skipped, no crash
+- FSM `trigger()` unknown event — returns False
+- FSM `on_exit` callback triggering event — re-entrant, no crash
+- FSM `on_enter` exception — propagates correctly
+- `StateMachine(states=[])` — raises ValueError
