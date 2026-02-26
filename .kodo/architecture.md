@@ -905,6 +905,17 @@ Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
 
 ---
 
+## Architect Review (Stage 6 Verification)
+
+**Minor issues fixed:**
+- `Game.replace()` and `Game.clear_and_push()` lacked `isinstance(scene, Scene)` guard that was added to `push()`. Added for consistency. (`game.py:347,358`)
+- `SoundHandle` docstring said "non-streaming" but the alias is used for both sound effects and music (streaming). Updated to "loaded audio source". (`backends/base.py:33`)
+
+**Known limitation (not blocking):**
+- Timer `chain_ids` fix (clearing on repeating-timer re-fire) can orphan still-running child timers from a prior iteration, making them uncancellable via the handle. This only manifests when `every()` interval < chain execution time — an unlikely edge case. The fix correctly prevents unbounded memory growth which was the original bug. A more robust solution would cancel old chain children before clearing, but that adds complexity for a narrow scenario.
+
+---
+
 **Confirmed real bugs (for Stage 5 fix pass):**
 - Grid `_cell_at` divides by zero when `cell_size=(0,0)` + `spacing=0`
 - `MoveTo` with negative speed → infinite movement away from target

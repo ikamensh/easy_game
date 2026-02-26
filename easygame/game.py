@@ -347,11 +347,19 @@ class Game:
     def replace(self, scene: Scene) -> None:
         """Replace the top scene.  Old top gets ``on_exit``, new scene
         gets ``on_enter``.  No ``on_reveal``."""
+        if not isinstance(scene, Scene):
+            raise TypeError(
+                f"scene must be a Scene instance, got {type(scene).__name__}"
+            )
         self._scene_stack.replace(scene)
 
     def clear_and_push(self, scene: Scene) -> None:
         """Clear the entire stack (all scenes get ``on_exit``), then push
         *scene*."""
+        if not isinstance(scene, Scene):
+            raise TypeError(
+                f"scene must be a Scene instance, got {type(scene).__name__}"
+            )
         self._scene_stack.clear_and_push(scene)
 
     # ------------------------------------------------------------------

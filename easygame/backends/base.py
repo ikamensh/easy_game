@@ -31,7 +31,7 @@ Mock: ``"img_0"``  /  Pyglet: ``pyglet.image.AbstractImage``
 """
 
 SoundHandle = Any
-"""Opaque reference to a loaded sound effect (non-streaming).
+"""Opaque reference to a loaded audio source (sound effect or music).
 
 Mock: ``"sound_path"``  /  Pyglet: ``pyglet.media.Source``
 """
