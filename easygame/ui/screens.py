@@ -355,7 +355,7 @@ class SaveLoadScreen(Scene):
                 return True
         return True
 
-    def _on_slot_click(self, slot: int, data: dict | None) -> None:
+    def _on_slot_click(self, slot: int, data: dict[str, Any] | None) -> None:
         if self._mode == "save":
             # Save the state of the scene *below* this overlay, not
             # the SaveLoadScreen itself.  Walk down the stack to find
@@ -564,9 +564,13 @@ class _SettingsScene(Scene):
                 )
             )
 
-            def make_rebind_handler(act: str, btn_ref: list) -> Callable[[], None]:
+            def make_rebind_handler(
+                act: str, btn_ref: list[Button | None]
+            ) -> Callable[[], None]:
                 def handler() -> None:
-                    self._start_listening(act, btn_ref[0])
+                    b = btn_ref[0]
+                    if b is not None:
+                        self._start_listening(act, b)
 
                 return handler
 

@@ -6,7 +6,8 @@ Game code uses ``game.cursor.set("attack")`` to change the cursor.
 
 from __future__ import annotations
 
-from typing import Any
+from easygame.assets import AssetManager
+from easygame.backends.base import Backend, ImageHandle
 
 
 class CursorManager:
@@ -16,11 +17,11 @@ class CursorManager:
     The game sets ``game.cursor.set("name")`` to change the cursor.
     """
 
-    def __init__(self, backend: Any, assets: Any) -> None:
+    def __init__(self, backend: Backend, assets: AssetManager) -> None:
         self._backend = backend
         self._assets = assets
         self._current: str = "default"
-        self._cursors: dict[str, tuple[Any, tuple[int, int]]] = {}
+        self._cursors: dict[str, tuple[ImageHandle, tuple[int, int]]] = {}
         # name -> (image_handle, (hotspot_x, hotspot_y))
 
     def register(

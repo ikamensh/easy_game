@@ -482,7 +482,6 @@ class PygletBackend:
         import ctypes
 
         from PIL import Image
-
         from pyglet.gl import (
             GL_BACK_LEFT,
             GL_FRONT_LEFT,

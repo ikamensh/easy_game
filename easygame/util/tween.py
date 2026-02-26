@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable
 
-
 # ---------------------------------------------------------------------------
 # Easing functions (quadratic, t in 0.0..1.0)
 # ---------------------------------------------------------------------------

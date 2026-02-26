@@ -467,7 +467,7 @@ that doesn't change the framework API.
 
 ```
 pyglet >= 2.0
-Pillow >= 10.0    # for color swap pixel manipulation, sprite sheet processing
+Pillow >= 12.1.1   # for color swap pixel manipulation, sprite sheet processing (12.1.1+ fixes CVE-2026-25990)
 ```
 
 Pillow is needed for:

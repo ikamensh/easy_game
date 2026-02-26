@@ -77,10 +77,13 @@ class SaveManager:
                 purposes (e.g. ``"WorldMapScene"``).
 
         Raises:
+            TypeError: If slot is not an int.
             ValueError: If slot < 1.
             SaveError: If the file cannot be written (permission, I/O, or
                 non-serializable state).
         """
+        if not isinstance(slot, int):
+            raise TypeError(f"slot must be an int, got {type(slot).__name__}")
         if slot < 1:
             raise ValueError("slot must be >= 1")
         try:
@@ -107,10 +110,13 @@ class SaveManager:
         or ``None`` if the slot is empty (file doesn't exist).
 
         Raises:
+            TypeError: If slot is not an int.
             ValueError: If slot < 1.
             SaveError: If the file exists but cannot be parsed (corrupted
                 JSON, I/O error, etc.).
         """
+        if not isinstance(slot, int):
+            raise TypeError(f"slot must be an int, got {type(slot).__name__}")
         if slot < 1:
             raise ValueError("slot must be >= 1")
         path = self._slot_path(slot)
@@ -142,6 +148,8 @@ class SaveManager:
 
     def delete(self, slot: int) -> None:
         """Delete the save file for *slot*.  No-op if slot is empty."""
+        if not isinstance(slot, int):
+            raise TypeError(f"slot must be an int, got {type(slot).__name__}")
         if slot < 1:
             raise ValueError("slot must be >= 1")
         path = self._slot_path(slot)

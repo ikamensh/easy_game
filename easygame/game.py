@@ -88,7 +88,9 @@ class Game:
 
             self._backend = MockBackend(resolution[0], resolution[1])
         elif backend == "pyglet":
-            from easygame.backends.pyglet_backend import PygletBackend  # type: ignore[import-not-found]
+            from easygame.backends.pyglet_backend import (
+                PygletBackend,  # type: ignore[import-not-found]
+            )
 
             self._backend = PygletBackend()
         elif hasattr(backend, "poll_events"):  # duck-type check
@@ -117,8 +119,8 @@ class Game:
         self._mouse_x: float | None = None
         self._mouse_y: float | None = None
 
-        from easygame.input import InputManager
         import easygame.util.tween as _tween_mod
+        from easygame.input import InputManager
         from easygame.util.timer import TimerManager
 
         self._input = InputManager()
@@ -331,6 +333,10 @@ class Game:
     def push(self, scene: Scene) -> None:
         """Push *scene* onto the stack.  Current top gets ``on_exit``,
         new scene gets ``on_enter``."""
+        if not isinstance(scene, Scene):
+            raise TypeError(
+                f"scene must be a Scene instance, got {type(scene).__name__}"
+            )
         self._scene_stack.push(scene)
 
     def pop(self) -> None:
@@ -476,6 +482,8 @@ class Game:
         # allow GC of the entire game graph.
         self._hud = None
         self._assets = None
+        if self._audio is not None:
+            self._audio._teardown()
         self._audio = None
         self._cursor = None
         self._save_manager = None

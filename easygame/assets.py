@@ -21,7 +21,9 @@ The asset manager is owned by :class:`~easygame.game.Game` and exposed as
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from easygame.backends.base import Backend, ImageHandle, SoundHandle
 
 if TYPE_CHECKING:
     from easygame.rendering.color_swap import ColorSwap
@@ -58,7 +60,7 @@ class AssetManager:
 
     def __init__(
         self,
-        backend: Any,
+        backend: Backend,
         base_path: Path | str = Path("assets"),
         *,
         scale_factor: float = 1.0,
@@ -66,12 +68,12 @@ class AssetManager:
         self._backend = backend
         self._base_path = Path(base_path)
         self._scale_factor = scale_factor
-        self._image_cache: dict[str, Any] = {}
+        self._image_cache: dict[str, ImageHandle] = {}
         self._swapped_cache: dict[
-            tuple[str, tuple[Any, ...]], Any
+            tuple[str, tuple[object, ...]], ImageHandle
         ] = {}  # (name, color_swap.cache_key()) -> handle
         self._frames_cache: dict[str, list[str]] = {}
-        self._sound_cache: dict[str, Any] = {}
+        self._sound_cache: dict[str, SoundHandle] = {}
         # Music paths are cached (not handles) because streaming sources
         # cannot be reused across players in pyglet.
         self._music_path_cache: dict[str, str] = {}
@@ -80,7 +82,7 @@ class AssetManager:
     # Image loading
     # ------------------------------------------------------------------
 
-    def image(self, name: str) -> Any:
+    def image(self, name: str) -> ImageHandle:
         """Load an image by convention name and return an opaque handle.
 
         *name* is resolved under ``<base_path>/images/``.  If *name* has
@@ -112,7 +114,7 @@ class AssetManager:
         self._image_cache[name] = handle
         return handle
 
-    def image_swapped(self, name: str, color_swap: "ColorSwap") -> Any:
+    def image_swapped(self, name: str, color_swap: "ColorSwap") -> ImageHandle:
         """Load an image with color replacement applied. Cached per (name, swap).
 
         Returns:
@@ -212,7 +214,7 @@ class AssetManager:
     #: streaming-friendly, patent-free).
     _MUSIC_EXTENSIONS: tuple[str, ...] = (".ogg", ".wav", ".mp3")
 
-    def sound(self, name: str) -> Any:
+    def sound(self, name: str) -> SoundHandle:
         """Load a sound effect by name (cached).
 
         Resolution: ``assets/sounds/{name}.wav``, then ``.ogg``, then
@@ -237,7 +239,7 @@ class AssetManager:
         self._sound_cache[name] = handle
         return handle
 
-    def music(self, name: str) -> Any:
+    def music(self, name: str) -> SoundHandle:
         """Load a music track by name (streaming).
 
         Returns a **fresh** streaming source each time because pyglet

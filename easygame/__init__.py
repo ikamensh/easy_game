@@ -40,6 +40,7 @@ from easygame.rendering.sprite import Sprite
 from easygame.save import SaveError, SaveManager
 from easygame.scene import Scene
 from easygame.ui import (
+    HUD,
     Anchor,
     Button,
     ChoiceScreen,
@@ -48,7 +49,6 @@ from easygame.ui import (
     DataTable,
     DragManager,
     Grid,
-    HUD,
     ImageBox,
     Label,
     Layout,

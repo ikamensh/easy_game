@@ -136,8 +136,7 @@ class Camera:
         """
         if not math.isfinite(x) or not math.isfinite(y):
             raise ValueError(
-                "camera coordinates must be finite (not NaN or Inf),"
-                f" got ({x}, {y})"
+                f"camera coordinates must be finite (not NaN or Inf), got ({x}, {y})"
             )
         self._cancel_pan()
         self._follow_target = None
@@ -362,6 +361,7 @@ class Camera:
         1. Follow tracking — center on the followed sprite.
         2. Edge scroll — scroll when the mouse is near a viewport edge.
         3. Key scroll — scroll when arrow keys are held.
+        4. Shake effect — apply decaying random offset from :meth:`shake`.
 
         Parameters:
             dt:      Delta time in seconds.

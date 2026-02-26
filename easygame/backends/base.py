@@ -42,6 +42,12 @@ FontHandle = Any
 Mock: ``"font_name"`` or ``(name, path)``  /  Pyglet: font name or path
 """
 
+MusicPlayerId = Any
+"""Opaque reference to a music player (from :meth:`Backend.play_music`).
+
+Used for volume control and stop. Mock: string id  /  Pyglet: Player instance.
+"""
+
 
 # ---------------------------------------------------------------------------
 # Event dataclasses  (frozen — events are immutable value objects)
@@ -369,17 +375,17 @@ class Backend(Protocol):
         *,
         loop: bool = True,
         volume: float = 1.0,
-    ) -> Any:
+    ) -> MusicPlayerId:
         """Start playing a music track.
 
         Returns an opaque player id for volume / stop control.
         """
         ...
 
-    def set_player_volume(self, player_id: Any, volume: float) -> None:
+    def set_player_volume(self, player_id: MusicPlayerId, volume: float) -> None:
         """Set the volume on a currently-playing music player."""
         ...
 
-    def stop_player(self, player_id: Any) -> None:
+    def stop_player(self, player_id: MusicPlayerId) -> None:
         """Stop and dispose of a music player."""
         ...

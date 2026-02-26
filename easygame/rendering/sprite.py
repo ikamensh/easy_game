@@ -21,6 +21,7 @@ in front — correct for top-down 2D games.
 from __future__ import annotations
 
 import math
+from collections import deque
 from typing import TYPE_CHECKING, Any, Callable
 
 from easygame.rendering.layers import RenderLayer, SpriteAnchor
@@ -153,7 +154,7 @@ class Sprite:
 
         # Animation state.
         self._anim_player: AnimationPlayer | None = None
-        self._anim_queue: list[tuple[AnimationDef, Callable[[], Any] | None]] = []
+        self._anim_queue: deque[tuple[AnimationDef, Callable[[], Any] | None]] = deque()
         self._move_tween_ids: list[int] = []
 
         # Action state (Stage 10 Composable Actions).
@@ -572,7 +573,7 @@ class Sprite:
     def _drain_queue(self) -> None:
         """Pop the next queued animation and play it, if any."""
         if self._anim_queue:
-            next_anim, next_cb = self._anim_queue.pop(0)
+            next_anim, next_cb = self._anim_queue.popleft()
             self.play(next_anim, on_complete=next_cb)
 
     def _sync_to_backend(self, *, image: Any | None = None) -> None:

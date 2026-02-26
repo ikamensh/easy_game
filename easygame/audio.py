@@ -13,9 +13,13 @@ delegates to the backend for rendering.
 from __future__ import annotations
 
 import random
-from typing import Any
+from typing import TYPE_CHECKING
 
 from easygame.assets import AssetManager, AssetNotFoundError
+from easygame.backends.base import Backend, MusicPlayerId
+
+if TYPE_CHECKING:
+    from easygame.util.tween import TweenManager
 
 
 # ---------------------------------------------------------------------------
@@ -34,8 +38,8 @@ class _CrossfadeProxy:
     def __init__(
         self,
         audio_mgr: AudioManager,
-        old_player_id: Any,
-        new_player_id: Any,
+        old_player_id: MusicPlayerId,
+        new_player_id: MusicPlayerId,
         old_base: float,
     ) -> None:
         self._audio = audio_mgr
@@ -85,7 +89,7 @@ class AudioManager:
                  sound/music assets by name.
     """
 
-    def __init__(self, backend: Any, assets: AssetManager) -> None:
+    def __init__(self, backend: Backend, assets: AssetManager) -> None:
         self._backend = backend
         self._assets = assets
 
@@ -98,14 +102,16 @@ class AudioManager:
         }
 
         # Current music state
-        self._current_player_id: Any | None = None
+        self._current_player_id: MusicPlayerId | None = None
         self._current_music_name: str | None = None
         self._current_player_base_volume: float = 1.0  # pre-channel volume
 
         # Crossfade state
-        self._crossfade_old_player: Any | None = None
+        self._crossfade_old_player: MusicPlayerId | None = None
         self._crossfade_tween_ids: list[int] = []
-        self._tween_manager: Any = None  # set when crossfade tweens are created
+        self._tween_manager: TweenManager | None = (
+            None  # set when crossfade tweens are created
+        )
 
         # Sound pools
         self._pools: dict[str, list[str]] = {}  # pool_name -> [sound_names]
@@ -332,7 +338,7 @@ class AudioManager:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _finish_crossfade(self, old_player_id: Any) -> None:
+    def _finish_crossfade(self, old_player_id: MusicPlayerId) -> None:
         """Called when crossfade completes.  Stop the old player."""
         self._backend.stop_player(old_player_id)
         self._crossfade_old_player = None
@@ -349,3 +355,7 @@ class AudioManager:
         if self._crossfade_old_player is not None:
             self._backend.stop_player(self._crossfade_old_player)
             self._crossfade_old_player = None
+
+    def _teardown(self) -> None:
+        """Stop all music and crossfades.  Called by Game._teardown on shutdown."""
+        self.stop_music()

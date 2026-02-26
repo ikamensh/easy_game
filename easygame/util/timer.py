@@ -217,8 +217,12 @@ class TimerManager:
                 else:
                     # Repeating: reset, no catch-up
                     timer.remaining = timer.interval
-                    # Clone the full chain as a one-shot sequence
+                    # Clone the full chain as a one-shot sequence. Reset
+                    # chain_ids to [root_id] before scheduling so we don't
+                    # grow indefinitely; new children replace old ones.
                     if timer.then_chain:
+                        timer.chain_ids.clear()
+                        timer.chain_ids.append(timer_id)
                         self._schedule_chain_step(
                             list(timer.then_chain),
                             timer.chain_ids,
