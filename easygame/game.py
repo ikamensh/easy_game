@@ -125,7 +125,6 @@ class Game:
 
         self._timer_manager = TimerManager()
         self._tween_manager = _tween_mod.TweenManager()
-        _tween_mod._tween_manager = self._tween_manager
 
         # Tell the backend to (notionally) create a window.  The mock backend
         # stores the resolution; the pyglet backend opens a real window.
@@ -137,7 +136,9 @@ class Game:
             visible,
         )
 
-        # Set the module-level game reference so Sprite() can find us.
+        # Only set globals after window creation succeeds — avoids leaving
+        # stale references if create_window() raises.
+        _tween_mod._tween_manager = self._tween_manager
         import easygame.rendering.sprite as _sprite_mod
 
         _sprite_mod._current_game = self
@@ -493,6 +494,10 @@ class Game:
         if _tween_mod._tween_manager is self._tween_manager:
             _tween_mod._tween_manager = None
 
+        import easygame.rendering.color_swap as _cs_mod
+
+        _cs_mod._clear_palettes()
+
     def __del__(self) -> None:
         # Best-effort cleanup if the caller forgot to call run() or
         # the Game is collected without a clean shutdown.
@@ -546,48 +551,49 @@ class Game:
         input_events = self._input.translate(non_window)
 
         self._scene_stack.begin_tick()
+        try:
+            for ev in input_events:
+                top = self._scene_stack.top()
+                if top is not None:
+                    # Populate world_x/world_y before any handler sees the event.
+                    camera = getattr(top, "camera", None)
+                    translated_event = _with_world_coords(ev, camera)
 
-        for ev in input_events:
-            top = self._scene_stack.top()
-            if top is not None:
-                # Populate world_x/world_y before any handler sees the event.
-                camera = getattr(top, "camera", None)
-                translated_event = _with_world_coords(ev, camera)
-
-                # HUD gets first crack at input.
-                if (
-                    self._hud is not None
-                    and self._hud._should_draw(top.show_hud)
-                    and self._hud._handle_event(translated_event)
-                ):
-                    continue
-                # Scene UI gets second crack.
-                if top._ui is not None:
-                    top._ui._ensure_layout()
-                    if top._ui.handle_event(translated_event):
+                    # HUD gets first crack at input.
+                    if (
+                        self._hud is not None
+                        and self._hud._should_draw(top.show_hud)
+                        and self._hud._handle_event(translated_event)
+                    ):
                         continue
-                # Camera key scroll gets third crack (before scene).
-                if camera is not None and camera.handle_input(translated_event):
-                    continue
-                top.handle_input(translated_event)
-
-        self._scene_stack.flush_pending_ops()
+                    # Scene UI gets second crack.
+                    if top._ui is not None:
+                        top._ui._ensure_layout()
+                        if top._ui.handle_event(translated_event):
+                            continue
+                    # Camera key scroll gets third crack (before scene).
+                    if camera is not None and camera.handle_input(translated_event):
+                        continue
+                    top.handle_input(translated_event)
+        finally:
+            self._scene_stack.flush_pending_ops()
 
         # -- Update phase --------------------------------------------------
         self._scene_stack.begin_tick()
-        self._scene_stack.update(dt)
+        try:
+            self._scene_stack.update(dt)
 
-        # Update the active scene's UI tree (typewriter, tooltips, etc.).
-        top = self._scene_stack.top()
-        if top is not None and top._ui is not None:
-            top._ui._update_tree(dt)
+            # Update the active scene's UI tree (typewriter, tooltips, etc.).
+            top = self._scene_stack.top()
+            if top is not None and top._ui is not None:
+                top._ui._update_tree(dt)
 
-        # Update the HUD's UI tree.
-        if self._hud is not None and top is not None:
-            if self._hud._should_draw(top.show_hud):
-                self._hud._update(dt)
-
-        self._scene_stack.flush_pending_ops()
+            # Update the HUD's UI tree.
+            if self._hud is not None and top is not None:
+                if self._hud._should_draw(top.show_hud):
+                    self._hud._update(dt)
+        finally:
+            self._scene_stack.flush_pending_ops()
 
         # -- Action phase --------------------------------------------------
         self._update_actions(dt)

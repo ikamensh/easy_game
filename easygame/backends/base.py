@@ -170,10 +170,6 @@ class Backend(Protocol):
         """
         ...
 
-    def get_display_info(self) -> tuple[int, int]:
-        """Return ``(physical_width, physical_height)`` of the display."""
-        ...
-
     def get_dt(self) -> float:
         """Return seconds elapsed since the last frame (delta time).
 

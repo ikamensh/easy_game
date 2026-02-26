@@ -166,10 +166,6 @@ class MockBackend:
         self._pending_events.clear()
         return events
 
-    def get_display_info(self) -> tuple[int, int]:
-        """Return the logical resolution (no physical display in mock)."""
-        return (self.logical_width, self.logical_height)
-
     def get_dt(self) -> float:
         """Return a fixed 16ms delta (≈60 fps).
 

@@ -365,11 +365,6 @@ class PygletBackend:
         self._event_queue.clear()
         return events
 
-    def get_display_info(self) -> tuple[int, int]:
-        if self.window is not None:
-            return (self.window.width, self.window.height)
-        return (self.logical_width, self.logical_height)
-
     def get_dt(self) -> float:
         import pyglet
 
@@ -497,7 +492,11 @@ class PygletBackend:
             glReadPixels,
         )
 
-        w, h = self.get_display_info()
+        w, h = (
+            (self.window.width, self.window.height)
+            if self.window is not None
+            else (self.logical_width, self.logical_height)
+        )
         buffer = (ctypes.c_ubyte * (w * h * 4))()
         glReadBuffer(GL_FRONT_LEFT)
         glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
