@@ -1,7 +1,7 @@
 # EasyGame Architecture Reference
 
-> Condensed from implementation journals (stages 6–13), updated through stage 5 API
-> improvements. All API signatures verified against source. **1144 tests passing.**
+> Condensed from implementation journals (stages 6–13), updated through stage 6 fixes.
+> All API signatures verified against source. **1318 tests passing.**
 
 ---
 
@@ -233,7 +233,7 @@ Camera.shake(intensity: float, duration: float, decay: float = 1.0)
 class AnimationDef:
     def __init__(self, frames: list[str] | str, frame_duration=0.15, loop=True)
 class AnimationPlayer:
-    current_frame, is_playing, is_finished  # properties
+    current_frame, is_playing, is_complete  # properties
     def update(self, dt) -> Any | None      # returns new frame handle or None
 ```
 
@@ -789,8 +789,18 @@ review. **13 fix, 31 skip, 1 needs-decision.** Key lessons:
 
 ## Fix & Report (Stage 6) — Verified
 
-All 14 "fix" verdicts implemented + 1 "needs-decision" documented. **1318 tests passing.**
-Ruff warnings reduced from 31 → 23 (remaining: unused vars + lambda assigns in tests).
+41 auto-fixes applied across 4 categories + 4 "needs-decision" documented. **1318 tests passing.**
+Ruff clean, mypy clean (strict, 33 source files).
+
+**Fix categories:**
+- Static analysis (SA-F1–F5): unused args → `_dt`, sorted imports/`__all__`, modernized `Callable`
+- Type checking (MY-F6–F10): generic params for `tuple`/`dict`/`list`, `cast` in save.py, stale ignores
+- Edge cases (EC-F1–F4, F7): scene loop cap (1000 iter), SaveError wrapping, slot validation, negative delay
+- API surface (API-F2–F28): `InputManager` export, `is_finished` → `is_complete`, error messages (9 locs),
+  atomic save (tmp+rename), `_clear_palettes` teardown, desired_examples API corrections
+- Architecture (AR-F3, F5): try/finally for `_in_tick`, removed unused `get_display_info` from protocol
+
+**Needs-decision:** Input 1:1 key mapping, `List` widget name shadows builtin, README docs updates.
 
 **Key implementation patterns:**
 - `SceneStack._cleanup_exiting_scene(scene)` centralizes post-on_exit cleanup (sprites,
