@@ -3,7 +3,10 @@ Multi-step game sequence: Heroes 2-style battle attack turn.
 Attacker walks forward, attacks, defender reacts, attacker walks back.
 This is what we want it to look like with EasyGame's composable Actions.
 """
-from easygame.actions import Sequence, Parallel, Delay, Do, PlayAnim, MoveTo, FadeOut, Remove
+from easygame import Sprite, RenderLayer, ParticleEmitter
+from easygame.actions import (
+    Sequence, Parallel, Delay, Do, PlayAnim, MoveTo, FadeOut, FadeIn, Remove, Repeat,
+)
 
 
 def execute_attack_turn(attacker, defender, damage, on_complete):
@@ -37,7 +40,7 @@ def execute_attack_turn(attacker, defender, damage, on_complete):
 # 20 lines. Same sequence. Flat, no nesting, no state machine.
 #
 # Want to add a screen shake on hit? Insert one line:
-#   Do(lambda: game.camera.shake(intensity=5, duration=0.2)),
+#   Do(lambda: game.camera.shake(intensity=5, duration=0.2, decay=1.0)),
 #
 # Want the defender to also play a death animation if killed?
 #   Do(lambda: defender.do(Sequence(PlayAnim(death), FadeOut(0.5), Remove())) if hp <= 0 else None),
@@ -54,26 +57,24 @@ def cast_fireball(caster, target_pos):
         MoveTo(target_pos, speed=400),
         Do(lambda: ParticleEmitter("sprites/flame", position=target_pos, count=30).burst()),
         Do(lambda: game.audio.play_sound("explosion")),
-        Do(lambda: game.camera.shake(intensity=8, duration=0.3)),
+        Do(lambda: game.camera.shake(intensity=8, duration=0.3, decay=1.0)),
         FadeOut(0.2),
         Remove(),
     ))
 
 
-# Cutscene: camera pans, characters talk, fade to black
+# Cutscene: camera pans, characters talk, fade to black.
+# Uses timer chaining — no game.do() needed.
 def intro_cutscene():
-    game.do(Sequence(
-        Do(lambda: game.camera.pan_to((1000, 500), speed=100)),
-        Delay(1.0),
-        Do(lambda: game.push(DialogScene("Elder", "The prophecy has begun..."))),
-        # DialogScene pops itself when dismissed — sequence resumes after
-        Delay(0.5),
-        Do(lambda: game.camera.pan_to((2000, 800), speed=150)),
-        Delay(1.0),
-        Do(lambda: game.push(DialogScene("Knight", "I am ready."))),
-        Do(lambda: screen_fade_to_black(1.0)),
-        Do(lambda: game.replace(GameWorldScene())),
-    ))
+    game.after(0, lambda: game.camera.pan_to(1000, 500, duration=2.0)).then(
+        lambda: game.push(DialogScene("Elder", "The prophecy has begun...")), 1.0
+    ).then(
+        lambda: game.camera.pan_to(2000, 800, duration=2.0), 0.5
+    ).then(
+        lambda: game.push(DialogScene("Knight", "I am ready.")), 1.0
+    ).then(
+        lambda: game.replace(GameWorldScene()), 0.0
+    )
 
 
 # Looping ambient animation: torch flickers

@@ -24,6 +24,11 @@ def register_palette(name: str, swap: "ColorSwap") -> None:
     _TEAM_PALETTES[name] = swap
 
 
+def _clear_palettes() -> None:
+    """Clear the palette registry. Called by Game._teardown()."""
+    _TEAM_PALETTES.clear()
+
+
 def get_palette(name: str) -> "ColorSwap":
     """Return the registered palette by name.
 
@@ -62,6 +67,8 @@ class ColorSwap:
         if len(source_colors) != len(target_colors):
             raise ValueError(
                 "source_colors and target_colors must have the same length"
+                f" (got {len(source_colors)} source and"
+                f" {len(target_colors)} target)"
             )
         self.source_colors = list(source_colors)
         self.target_colors = list(target_colors)
@@ -76,7 +83,11 @@ class ColorSwap:
         img = Image.open(image_path).convert("RGBA")
         pixels = img.load()
         if pixels is None:
-            raise RuntimeError(f"Failed to load pixel data from image: {image_path}")
+            raise RuntimeError(
+                f"Failed to load pixel data from image: {image_path}."
+                " Ensure the file exists, is a valid image format, and that"
+                " Pillow (PIL) is installed."
+            )
         color_map = dict(zip(self.source_colors, self.target_colors))
 
         for y in range(img.height):

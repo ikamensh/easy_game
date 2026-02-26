@@ -449,7 +449,7 @@ class Sprite:
         """
         if self._removed:
             return
-        if self._anim_player is None or self._anim_player.is_finished:
+        if self._anim_player is None or self._anim_player.is_complete:
             self.play(anim, on_complete=on_complete)
         else:
             self._anim_queue.append((anim, on_complete))

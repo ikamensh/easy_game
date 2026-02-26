@@ -8,12 +8,12 @@ import random
 
 class WorldScene(Scene):
     def on_enter(self):
-        self.camera = Camera(viewport_size=(1920, 1080), world_bounds=(4096, 4096))
-        self.camera.enable_edge_scroll(speed=8, margin=20)
+        self.camera = Camera(viewport_size=(1920, 1080), world_bounds=(0, 0, 4096, 4096))
+        self.camera.enable_edge_scroll(margin=50, speed=300)
 
-        # Background — one call, framework tiles it or scrolls it
-        self.background = Sprite("backgrounds/grass", layer=RenderLayer.BACKGROUND,
-                                 tile=(4096, 4096))  # tile the image to fill world
+        # Background — in a real game, use a pre-tiled background image.
+        # The framework handles camera-relative scrolling.
+        self.background = Sprite("backgrounds/grass", layer=RenderLayer.BACKGROUND)
 
         # Trees
         for _ in range(200):

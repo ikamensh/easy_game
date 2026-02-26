@@ -61,7 +61,7 @@ class TestAnimationPlayerConstruction:
     """AnimationPlayer requires resolved handles and valid config."""
 
     def test_empty_frames_raises(self) -> None:
-        with pytest.raises(ValueError, match="at least one frame"):
+        with pytest.raises(ValueError, match="zero frames"):
             AnimationPlayer(frames=[], frame_duration=0.1, loop=True)
 
     def test_initial_state(self) -> None:
@@ -73,7 +73,7 @@ class TestAnimationPlayerConstruction:
         assert player.current_frame == "h0"
         assert player.frame_index == 0
         assert player.is_playing is True
-        assert player.is_finished is False
+        assert player.is_complete is False
 
 
 # ==================================================================
@@ -159,7 +159,7 @@ class TestAnimationPlayerLooping:
         player.update(0.1)   # → h1
         player.update(0.1)   # → h0
         assert player.is_playing is True
-        assert player.is_finished is False
+        assert player.is_complete is False
 
     def test_multiple_loops(self) -> None:
         """Can loop through the entire animation multiple times."""
@@ -210,7 +210,7 @@ class TestAnimationPlayerOneShot:
         player.update(0.1)   # → h2
         player.update(0.1)   # stays on h2, finishes
 
-        assert player.is_finished is True
+        assert player.is_complete is True
         assert player.is_playing is False
         assert player.current_frame == "h2"
 
@@ -257,7 +257,7 @@ class TestAnimationPlayerOneShot:
         )
         player.update(0.1)
         player.update(0.1)  # finishes, no callback
-        assert player.is_finished is True
+        assert player.is_complete is True
 
     def test_single_frame_non_looping(self) -> None:
         """A single-frame non-looping animation finishes immediately on first advance."""
@@ -275,7 +275,7 @@ class TestAnimationPlayerOneShot:
         )
         result = player.update(0.1)
         # Frame tried to advance past index 0 → clamped to 0, finished
-        assert player.is_finished is True
+        assert player.is_complete is True
         assert callback_fired is True
         assert player.current_frame == "h0"
 
@@ -287,7 +287,7 @@ class TestAnimationPlayerOneShot:
             loop=False,
         )
         result = player.update(1.0)  # 10 frames worth, but only 3 frames
-        assert player.is_finished is True
+        assert player.is_complete is True
         assert player.current_frame == "h2"
 
 
@@ -315,7 +315,7 @@ class TestAnimationPlayerEdgeCases:
             loop=False,
         )
         player.update(0.01)  # 10 frames → finishes (only 3 frames)
-        assert player.is_finished is True
+        assert player.is_complete is True
         assert player.current_frame == "h2"
 
     def test_single_frame_looping(self) -> None:

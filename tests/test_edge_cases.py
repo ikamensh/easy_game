@@ -144,7 +144,7 @@ class TestSceneStackPushNone:
 
     def test_push_none_raises(self, game: Game) -> None:
         """push(None) raises ValueError with a clear message."""
-        with pytest.raises(ValueError, match="scene must not be None"):
+        with pytest.raises(ValueError, match="requires a Scene instance"):
             game.push(None)  # type: ignore[arg-type]
 
     def test_push_valid_scene_works(self, game: Game) -> None:

@@ -732,7 +732,7 @@ class Grid(Component):
         **kwargs: Any,
     ) -> None:
         if spacing < 0:
-            raise ValueError("spacing cannot be negative")
+            raise ValueError(f"spacing cannot be negative, got {spacing}")
         super().__init__(width=width, height=height, style=style, **kwargs)
         self._columns = columns
         self._rows = rows

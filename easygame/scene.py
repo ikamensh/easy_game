@@ -389,7 +389,7 @@ class SceneStack:
     def push(self, scene: Scene) -> None:
         """Push scene on top. Current top gets on_exit, new scene gets on_enter."""
         if scene is None:
-            raise ValueError("scene must not be None")
+            raise ValueError("push() requires a Scene instance, got None")
         if self._should_defer():
             self._pending_ops.append(("push", scene))
             return
@@ -405,7 +405,7 @@ class SceneStack:
     def replace(self, scene: Scene) -> None:
         """Replace top scene. Old gets on_exit, new gets on_enter. No on_reveal."""
         if scene is None:
-            raise ValueError("scene must not be None")
+            raise ValueError("replace() requires a Scene instance, got None")
         if self._should_defer():
             self._pending_ops.append(("replace", scene))
             return
@@ -414,7 +414,7 @@ class SceneStack:
     def clear_and_push(self, scene: Scene) -> None:
         """Clear stack, push scene. All cleared scenes get on_exit."""
         if scene is None:
-            raise ValueError("scene must not be None")
+            raise ValueError("clear_and_push() requires a Scene instance, got None")
         if self._should_defer():
             self._pending_ops.append(("clear_and_push", scene))
             return

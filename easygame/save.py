@@ -92,7 +92,9 @@ class SaveManager:
                 "state": state,
             }
             path = self._slot_path(slot)
-            path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp.replace(path)  # atomic on POSIX, near-atomic on Windows
         except (PermissionError, OSError, TypeError) as exc:
             raise SaveError(
                 f"Cannot write save file for slot {slot}: {self._slot_path(slot)}: {exc}"

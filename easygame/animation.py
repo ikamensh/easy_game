@@ -116,7 +116,11 @@ class AnimationPlayer:
         on_complete: Callable[[], Any] | None = None,
     ) -> None:
         if not frames:
-            raise ValueError("AnimationPlayer requires at least one frame.")
+            raise ValueError(
+                "Cannot play animation with zero frames. Check that your"
+                " AnimationDef has at least one frame name, or that the asset"
+                " prefix matches files on disk."
+            )
         self._frames = frames
         self._frame_duration = frame_duration
         self._loop = loop
@@ -140,7 +144,7 @@ class AnimationPlayer:
         return not self._finished
 
     @property
-    def is_finished(self) -> bool:
+    def is_complete(self) -> bool:
         """``True`` when a non-looping animation has played to the end."""
         return self._finished
 

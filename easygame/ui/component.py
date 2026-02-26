@@ -75,11 +75,11 @@ class Component:
         on_drop: Callable[[Any, Any], Any] | None = None,
     ) -> None:
         if width is not None and width < 0:
-            raise ValueError("width cannot be negative")
+            raise ValueError(f"width cannot be negative, got {width}")
         if height is not None and height < 0:
-            raise ValueError("height cannot be negative")
+            raise ValueError(f"height cannot be negative, got {height}")
         if margin < 0:
-            raise ValueError("margin cannot be negative")
+            raise ValueError(f"margin cannot be negative, got {margin}")
         self._width = width
         self._height = height
         self._anchor = anchor

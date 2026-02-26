@@ -135,7 +135,10 @@ class Camera:
             ValueError: If *x* or *y* is NaN or Inf.
         """
         if not math.isfinite(x) or not math.isfinite(y):
-            raise ValueError("camera coordinates must be finite (not NaN or Inf)")
+            raise ValueError(
+                "camera coordinates must be finite (not NaN or Inf),"
+                f" got ({x}, {y})"
+            )
         self._cancel_pan()
         self._follow_target = None
         self._x = x - self._vw / 2
@@ -299,7 +302,7 @@ class Camera:
                       ``Ease.EASE_IN_OUT``).
         """
         if not math.isfinite(x) or not math.isfinite(y):
-            raise ValueError("pan_to requires finite x and y")
+            raise ValueError(f"pan_to requires finite x and y, got ({x}, {y})")
         from easygame.util import tween as tween_mod
         from easygame.util.tween import Ease, tween
 

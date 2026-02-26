@@ -32,7 +32,7 @@ from easygame.backends.base import (
 )
 from easygame.cursor import CursorManager
 from easygame.game import Game
-from easygame.input import InputEvent
+from easygame.input import InputEvent, InputManager
 from easygame.rendering import Camera, ColorSwap, get_palette, register_palette
 from easygame.rendering.layers import RenderLayer, SpriteAnchor
 from easygame.rendering.particles import ParticleEmitter
@@ -94,6 +94,7 @@ __all__ = [
     "Grid",
     "HUD",
     "ImageBox",
+    "InputManager",
     "InputEvent",
     "KeyEvent",
     "Label",

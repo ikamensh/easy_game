@@ -152,7 +152,7 @@ class TimerManager:
             ValueError: If *interval* is zero or negative.
         """
         if interval <= 0:
-            raise ValueError("interval must be > 0")
+            raise ValueError(f"interval must be > 0, got {interval}")
         timer_id = self._next_id
         self._next_id += 1
         chain_ids: list[int] = [timer_id]
