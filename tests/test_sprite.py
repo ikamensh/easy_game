@@ -547,52 +547,51 @@ def test_move_to_on_arrive_called_once_when_both_axes_finish_same_frame(
 # ------------------------------------------------------------------
 
 
-def test_nan_position_does_not_crash(game: Game, backend: MockBackend) -> None:
-    """Setting position to NaN skips the backend sync instead of ValueError."""
+def test_nan_position_raises(game: Game, backend: MockBackend) -> None:
+    """Setting position to NaN raises ValueError."""
+    sprite = Sprite(
+        "sprites/knight",
+        position=(100, 200),
+        anchor=SpriteAnchor.TOP_LEFT,
+    )
+
+    with pytest.raises(ValueError, match="finite"):
+        sprite.position = (float("nan"), 200)
+
+
+def test_nan_y_position_raises(game: Game, backend: MockBackend) -> None:
+    """NaN on y coordinate raises ValueError."""
+    sprite = Sprite(
+        "sprites/knight",
+        position=(100, 200),
+        anchor=SpriteAnchor.TOP_LEFT,
+    )
+
+    with pytest.raises(ValueError, match="finite"):
+        sprite.position = (100, float("nan"))
+
+
+def test_inf_position_raises(game: Game, backend: MockBackend) -> None:
+    """Setting position to inf raises ValueError."""
+    sprite = Sprite(
+        "sprites/knight",
+        position=(100, 200),
+        anchor=SpriteAnchor.TOP_LEFT,
+    )
+
+    with pytest.raises(ValueError, match="finite"):
+        sprite.position = (float("inf"), 200)
+
+
+def test_normal_position_still_syncs(game: Game, backend: MockBackend) -> None:
+    """A valid position update syncs correctly."""
     sprite = Sprite(
         "sprites/knight",
         position=(100, 200),
         anchor=SpriteAnchor.TOP_LEFT,
     )
     sid = sprite.sprite_id
-    old_x = backend.sprites[sid]["x"]
-    old_y = backend.sprites[sid]["y"]
 
-    # Setting NaN position should not raise.
-    sprite.position = (float("nan"), 200)
-    # Backend should NOT have been updated (NaN guard skips sync).
-    assert backend.sprites[sid]["x"] == old_x
-    assert backend.sprites[sid]["y"] == old_y
-
-
-def test_nan_y_position_does_not_crash(game: Game, backend: MockBackend) -> None:
-    """NaN on y coordinate also skips sync safely."""
-    sprite = Sprite(
-        "sprites/knight",
-        position=(100, 200),
-        anchor=SpriteAnchor.TOP_LEFT,
-    )
-    sid = sprite.sprite_id
-    old_x = backend.sprites[sid]["x"]
-    old_y = backend.sprites[sid]["y"]
-
-    sprite.position = (100, float("nan"))
-    assert backend.sprites[sid]["x"] == old_x
-    assert backend.sprites[sid]["y"] == old_y
-
-
-def test_normal_position_still_syncs_after_nan(game: Game, backend: MockBackend) -> None:
-    """After NaN, a valid position update still syncs correctly."""
-    sprite = Sprite(
-        "sprites/knight",
-        position=(100, 200),
-        anchor=SpriteAnchor.TOP_LEFT,
-    )
-    sid = sprite.sprite_id
-
-    # First set NaN (skipped)
-    sprite.position = (float("nan"), float("nan"))
-    # Then set valid position
     sprite.position = (300, 400)
 
     assert backend.sprites[sid]["x"] == 300

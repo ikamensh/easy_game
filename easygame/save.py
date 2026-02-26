@@ -101,7 +101,7 @@ class SaveManager:
             return None
         try:
             text = path.read_text(encoding="utf-8")
-            return json.loads(text)  # type: ignore[no-any-return]
+            return json.loads(text)
         except (json.JSONDecodeError, TypeError, OSError) as exc:
             raise SaveError(
                 f"Corrupted save file in slot {slot}: {path} "

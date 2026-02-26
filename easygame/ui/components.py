@@ -13,7 +13,7 @@ through ``self._game.theme``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from easygame.ui.component import Component
 from easygame.ui.layout import Layout, compute_anchor_position, compute_content_size, compute_flow_layout
@@ -107,7 +107,7 @@ class Label(Component):
 
     def __init__(
         self,
-        text: str,
+        text: str | None,
         *,
         font_size: int | None = None,
         text_color: tuple[int, int, int, int] | None = None,
@@ -117,7 +117,7 @@ class Label(Component):
     ) -> None:
         merged = _merge_label_style(style, font_size, text_color, font)
         super().__init__(style=merged, **kwargs)
-        self._text = text
+        self._text = text if text is not None else ""
         self._font_handle: Any = None
 
     # -- Properties --------------------------------------------------------
@@ -128,9 +128,10 @@ class Label(Component):
         return self._text
 
     @text.setter
-    def text(self, value: str) -> None:
-        if value != self._text:
-            self._text = value
+    def text(self, value: str | None) -> None:
+        new_text = value if value is not None else ""
+        if new_text != self._text:
+            self._text = new_text
             self._font_handle = None  # invalidate cached font
             self._mark_layout_dirty()
 
@@ -216,7 +217,7 @@ class Button(Component):
         super().__init__(style=style, **kwargs)
         self._text = text
         self._on_click = on_click
-        self._state: str = "normal"  # "normal" | "hovered" | "pressed"
+        self._state: Literal["normal", "hovered", "pressed"] = "normal"
         self._font_handle: Any = None
 
     # -- Properties --------------------------------------------------------
@@ -315,7 +316,9 @@ class Button(Component):
         """Draw background rectangle then centered text."""
         if self._game is None:
             return
-        state = "disabled" if not self.enabled else self._state
+        state: Literal["normal", "hovered", "pressed", "disabled"] = (
+            "disabled" if not self.enabled else self._state
+        )
         resolved = self._resolve_style(state)
 
         # Background rect.
@@ -343,12 +346,15 @@ class Button(Component):
 
     # -- Internal ----------------------------------------------------------
 
-    def _resolve_style(self, state: str = "normal") -> ResolvedStyle:
+    def _resolve_style(
+        self,
+        state: Literal["normal", "hovered", "pressed", "disabled"] = "normal",
+    ) -> ResolvedStyle:
         """Merge explicit style with button defaults, considering state."""
         if self._game is not None:
-            return self._game.theme.resolve_button_style(self.style, state)  # type: ignore[arg-type]
+            return self._game.theme.resolve_button_style(self.style, state)
         from easygame.ui.theme import Theme
-        return Theme().resolve_button_style(self.style, state)  # type: ignore[arg-type]
+        return Theme().resolve_button_style(self.style, state)
 
 
 # ---------------------------------------------------------------------------
@@ -378,11 +384,13 @@ class Panel(Component):
         self,
         *,
         layout: Layout = Layout.NONE,
-        spacing: int = 0,
+        spacing: int | None = 0,
         children: list[Component] | None = None,
         style: Style | None = None,
         **kwargs: Any,
     ) -> None:
+        if spacing is None:
+            spacing = 0
         if spacing < 0:
             raise ValueError("spacing cannot be negative")
         super().__init__(style=style, **kwargs)

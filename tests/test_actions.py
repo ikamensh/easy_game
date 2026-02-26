@@ -888,12 +888,11 @@ class TestEdgeCases:
         sprite.remove()
         game.tick(dt=0.016)
 
-    def test_move_to_zero_speed_still_completes_if_at_target(
+    def test_move_to_zero_speed_raises(
         self, sprite: Sprite, game: Game,
     ) -> None:
-        sprite.do(MoveTo((100, 300), speed=0))
-        game.tick(dt=0.016)
-        assert sprite not in game._action_sprites
+        with pytest.raises(ValueError, match="speed must be > 0"):
+            MoveTo((100, 300), speed=0)
 
     def test_fade_out_from_zero(self, sprite: Sprite, game: Game) -> None:
         sprite.opacity = 0
@@ -979,26 +978,18 @@ class TestEdgeCases:
 class TestMoveToNegativeSpeed:
     def test_move_to_negative_speed_raises(self) -> None:
         """MoveTo with negative speed raises ValueError at construction."""
-        with pytest.raises(ValueError, match="speed must be >= 0"):
+        with pytest.raises(ValueError, match="speed must be > 0"):
             MoveTo((200, 300), speed=-100)
 
-    def test_move_to_zero_speed_at_target_completes(
-        self, sprite: Sprite, game: Game,
-    ) -> None:
-        """MoveTo with speed=0 at target completes immediately."""
-        sprite.do(MoveTo((100, 300), speed=0))
-        game.tick(dt=0.016)
-        assert sprite not in game._action_sprites
+    def test_move_to_zero_speed_raises(self) -> None:
+        """MoveTo with speed=0 raises ValueError at construction."""
+        with pytest.raises(ValueError, match="speed must be > 0"):
+            MoveTo((100, 300), speed=0)
 
-    def test_move_to_zero_speed_not_at_target_stays(
-        self, sprite: Sprite, game: Game,
-    ) -> None:
-        """MoveTo with speed=0 not at target never moves (step=0 each frame)."""
-        sprite.do(MoveTo((500, 300), speed=0))
-        game.tick(dt=1.0)
-        # Sprite should still be running (step=0 < dist, never arrives)
-        assert sprite in game._action_sprites
-        assert sprite._x == 100  # hasn't moved
+    def test_move_to_zero_speed_not_at_target_raises(self) -> None:
+        """MoveTo with speed=0 not at target raises ValueError at construction."""
+        with pytest.raises(ValueError, match="speed must be > 0"):
+            MoveTo((500, 300), speed=0)
 
 
 # ------------------------------------------------------------------

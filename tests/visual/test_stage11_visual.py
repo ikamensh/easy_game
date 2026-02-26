@@ -25,12 +25,12 @@ _project_root = Path(__file__).resolve().parents[2]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from PIL import Image
+from PIL import Image  # noqa: E402
 
-from easygame import ColorSwap, Game, ParticleEmitter, Scene, Sprite
-from easygame.assets import AssetManager
-from easygame.input import InputEvent
-from easygame.backends.pyglet_backend import PygletBackend
+from easygame import ColorSwap, Game, ParticleEmitter, Scene, Sprite  # noqa: E402
+from easygame.assets import AssetManager  # noqa: E402
+from easygame.input import InputEvent  # noqa: E402
+from easygame.backends.pyglet_backend import PygletBackend  # noqa: E402
 
 
 def _create_assets(tmp: Path) -> None:

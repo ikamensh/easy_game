@@ -205,36 +205,6 @@ class Theme:
             press_color=_pick(e.press_color, self._button_press_color),
         )
 
-    def resolve_imagebox_style(self, explicit: Style | None) -> ResolvedStyle:
-        """Merge explicit style with ImageBox defaults (padding, border only)."""
-        e = explicit or Style()
-        return ResolvedStyle(
-            font=_pick(e.font, self._font),
-            font_size=_pick(e.font_size, self._font_size),
-            text_color=_pick(e.text_color, self._text_color),
-            background_color=(0, 0, 0, 0),
-            padding=_pick(e.padding, 0),
-            border_color=_pick(e.border_color, self._panel_border_color),
-            border_width=_pick(e.border_width, self._panel_border_width),
-            hover_color=_pick(e.hover_color, self._button_hover_color),
-            press_color=_pick(e.press_color, self._button_press_color),
-        )
-
-    def resolve_progressbar_style(self, explicit: Style | None) -> ResolvedStyle:
-        """Merge explicit style with ProgressBar defaults."""
-        e = explicit or Style()
-        return ResolvedStyle(
-            font=_pick(e.font, self._font),
-            font_size=_pick(e.font_size, self._font_size),
-            text_color=_pick(e.text_color, self._text_color),
-            background_color=_pick(e.background_color, self._progressbar_bg_color),
-            padding=_pick(e.padding, 0),
-            border_color=_pick(e.border_color, self._panel_border_color),
-            border_width=_pick(e.border_width, self._panel_border_width),
-            hover_color=_pick(e.hover_color, self._button_hover_color),
-            press_color=_pick(e.press_color, self._button_press_color),
-        )
-
     @property
     def button_min_width(self) -> int:
         return self._button_min_width

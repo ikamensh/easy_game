@@ -8,6 +8,7 @@ Uses module-level ``_tween_manager`` set by :class:`Game` during init.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable
@@ -98,6 +99,14 @@ class TweenManager:
         """Create a tween. Returns tween_id for cancellation."""
         if not hasattr(target, prop):
             raise AttributeError(f"'{type(target).__name__}' has no attribute '{prop}'")
+        if not math.isfinite(from_val):
+            raise ValueError(
+                f"from_val must be finite, got {from_val}"
+            )
+        if not math.isfinite(to_val):
+            raise ValueError(
+                f"to_val must be finite, got {to_val}"
+            )
         tween_id = self._next_id
         self._next_id += 1
         self._tweens[tween_id] = _Tween(

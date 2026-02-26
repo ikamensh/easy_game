@@ -467,7 +467,11 @@ class SceneStack:
                 self._in_on_exit = False
         scene.game = self._game
         self._stack.append(scene)
-        scene.on_enter()
+        try:
+            scene.on_enter()
+        except Exception:
+            self._stack.pop()
+            raise
 
     def _apply_pop(self) -> None:
         if not self._stack:
@@ -495,7 +499,11 @@ class SceneStack:
                 self._in_on_exit = False
         scene.game = self._game
         self._stack.append(scene)
-        scene.on_enter()
+        try:
+            scene.on_enter()
+        except Exception:
+            self._stack.pop()
+            raise
 
     def _apply_clear_and_push(self, scene: Scene) -> None:
         self._in_on_exit = True
@@ -508,7 +516,11 @@ class SceneStack:
             self._in_on_exit = False
         scene.game = self._game
         self._stack.append(scene)
-        scene.on_enter()
+        try:
+            scene.on_enter()
+        except Exception:
+            self._stack.pop()
+            raise
 
     def update(self, dt: float) -> None:
         """Update the top scene (and below if pause_below=False)."""

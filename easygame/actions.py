@@ -268,8 +268,8 @@ class MoveTo(Action):
     """
 
     def __init__(self, position: tuple[float, float], speed: float) -> None:
-        if speed < 0:
-            raise ValueError("speed must be >= 0")
+        if speed <= 0:
+            raise ValueError("speed must be > 0")
         self._target_x = float(position[0])
         self._target_y = float(position[1])
         self._speed = speed

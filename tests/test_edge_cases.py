@@ -30,7 +30,10 @@ from easygame.backends.base import KeyEvent, MouseEvent
 from easygame.backends.mock_backend import MockBackend
 from easygame.input import InputManager
 from easygame.save import SaveError, SaveManager
+from easygame.ui.components import Label, Panel
+from easygame.ui.layout import Layout
 from easygame.util.timer import TimerManager
+from easygame.util.tween import TweenManager
 
 
 # ------------------------------------------------------------------
@@ -520,3 +523,259 @@ class TestInputEdgeCases:
         assert len(events) == 1
         assert events[0].x == -10
         assert events[0].y == -20
+
+
+# ==================================================================
+# F1: Sprite position must be finite (no NaN, Inf, -Inf)
+# ==================================================================
+
+
+class TestSpritePositionFinite:
+    """Sprite position and assignment must reject non-finite values."""
+
+    def test_position_nan_init_raises(self, game: Game) -> None:
+        """Creating a Sprite with NaN position raises ValueError."""
+        game.push(Scene())
+        with pytest.raises(ValueError, match="finite"):
+            Sprite("sprites/knight", position=(float("nan"), 0))
+
+    def test_position_inf_init_raises(self, game: Game) -> None:
+        """Creating a Sprite with inf position raises ValueError."""
+        game.push(Scene())
+        with pytest.raises(ValueError, match="finite"):
+            Sprite("sprites/knight", position=(float("inf"), 0))
+
+    def test_position_neg_inf_init_raises(self, game: Game) -> None:
+        """Creating a Sprite with -inf position raises ValueError."""
+        game.push(Scene())
+        with pytest.raises(ValueError, match="finite"):
+            Sprite("sprites/knight", position=(0, float("-inf")))
+
+    def test_position_setter_nan_raises(self, game: Game) -> None:
+        """Setting position to NaN raises ValueError."""
+        game.push(Scene())
+        s = Sprite("sprites/knight", position=(0, 0))
+        with pytest.raises(ValueError, match="finite"):
+            s.position = (float("nan"), 0)
+
+    def test_position_setter_inf_raises(self, game: Game) -> None:
+        """Setting position to inf raises ValueError."""
+        game.push(Scene())
+        s = Sprite("sprites/knight", position=(0, 0))
+        with pytest.raises(ValueError, match="finite"):
+            s.position = (0, float("inf"))
+
+    def test_x_setter_nan_raises(self, game: Game) -> None:
+        """Setting x to NaN raises ValueError."""
+        game.push(Scene())
+        s = Sprite("sprites/knight", position=(0, 0))
+        with pytest.raises(ValueError, match="finite"):
+            s.x = float("nan")
+
+    def test_y_setter_inf_raises(self, game: Game) -> None:
+        """Setting y to inf raises ValueError."""
+        game.push(Scene())
+        s = Sprite("sprites/knight", position=(0, 0))
+        with pytest.raises(ValueError, match="finite"):
+            s.y = float("inf")
+
+    def test_finite_position_accepted(self, game: Game) -> None:
+        """Normal finite positions work correctly."""
+        game.push(Scene())
+        s = Sprite("sprites/knight", position=(100.5, 200.7))
+        assert s.position == (100.5, 200.7)
+        s.position = (-50.0, 9999.0)
+        assert s.position == (-50.0, 9999.0)
+
+
+# ==================================================================
+# F2: Scene stack pops scene if on_enter() raises
+# ==================================================================
+
+
+class TestSceneStackOnEnterException:
+    """If on_enter() raises, the scene must NOT be left on the stack."""
+
+    def test_push_on_enter_exception_pops_scene(self, game: Game) -> None:
+        """push() with a scene whose on_enter raises removes scene from stack."""
+        class BadScene(Scene):
+            def on_enter(self) -> None:
+                raise RuntimeError("on_enter failed")
+
+        with pytest.raises(RuntimeError, match="on_enter failed"):
+            game.push(BadScene())
+
+        # Stack should be empty (no scenes before, bad scene was removed).
+        assert game._scene_stack.top() is None
+
+    def test_push_on_enter_exception_preserves_previous(self, game: Game) -> None:
+        """push() failure preserves the previously active scene."""
+        good_scene = Scene()
+        game.push(good_scene)
+
+        class BadScene(Scene):
+            def on_enter(self) -> None:
+                raise RuntimeError("on_enter failed")
+
+        with pytest.raises(RuntimeError, match="on_enter failed"):
+            game.push(BadScene())
+
+        # The good scene's on_exit was already called (it's covered now),
+        # but the bad scene should not be on the stack.
+        # The stack should have the good scene still in it (it was
+        # not popped — only on_exit was called before the push).
+        # Actually, the good scene had on_exit called but stays in stack.
+        assert game._scene_stack.top() is good_scene
+
+    def test_replace_on_enter_exception_pops_scene(self, game: Game) -> None:
+        """replace() with bad on_enter removes the new scene from stack."""
+        good_scene = Scene()
+        game.push(good_scene)
+
+        class BadScene(Scene):
+            def on_enter(self) -> None:
+                raise RuntimeError("on_enter failed")
+
+        with pytest.raises(RuntimeError, match="on_enter failed"):
+            game.replace(BadScene())
+
+        # The old scene was popped (replace pops first), and the new
+        # scene was also removed due to on_enter failure.
+        assert game._scene_stack.top() is None
+
+
+# ==================================================================
+# F4: MoveTo speed <= 0 raises ValueError
+# ==================================================================
+
+
+class TestMoveToSpeedValidation:
+    """MoveTo should raise ValueError if speed <= 0."""
+
+    def test_speed_zero_raises(self) -> None:
+        """MoveTo(speed=0) raises ValueError."""
+        with pytest.raises(ValueError, match="speed must be > 0"):
+            MoveTo((100, 100), speed=0)
+
+    def test_speed_negative_raises(self) -> None:
+        """MoveTo(speed=-5) raises ValueError."""
+        with pytest.raises(ValueError, match="speed must be > 0"):
+            MoveTo((100, 100), speed=-5)
+
+    def test_speed_positive_accepted(self, game: Game) -> None:
+        """MoveTo(speed=100) is accepted normally."""
+        game.push(Scene())
+        s = Sprite("sprites/knight", position=(0, 0))
+        action = MoveTo((100, 100), speed=100)
+        action.start(s)
+        # Should not raise
+
+
+# ==================================================================
+# F5: Label(None) handled gracefully as empty string
+# ==================================================================
+
+
+class TestLabelNoneText:
+    """Label(None) should not crash; it should treat None as empty string."""
+
+    def test_label_none_text_is_empty(self) -> None:
+        """Label(None) stores empty string."""
+        label = Label(None)
+        assert label.text == ""
+
+    def test_label_set_text_none(self) -> None:
+        """Setting label.text = None stores empty string."""
+        label = Label("hello")
+        label.text = None
+        assert label.text == ""
+
+    def test_label_normal_text_works(self) -> None:
+        """Label with normal text works correctly."""
+        label = Label("Hello World")
+        assert label.text == "Hello World"
+
+    def test_label_empty_string(self) -> None:
+        """Label('') is accepted."""
+        label = Label("")
+        assert label.text == ""
+
+    def test_label_none_preferred_size_no_crash(self) -> None:
+        """Label(None).get_preferred_size() does not crash."""
+        label = Label(None)
+        w, h = label.get_preferred_size()
+        assert w == 0  # empty text → zero width
+        assert h > 0  # height based on font size
+
+
+# ==================================================================
+# F6: Panel(spacing=None) uses default spacing
+# ==================================================================
+
+
+class TestPanelSpacingNone:
+    """Panel(spacing=None) should use 0 as default, not crash."""
+
+    def test_spacing_none_uses_default(self) -> None:
+        """Panel(spacing=None) defaults spacing to 0."""
+        panel = Panel(spacing=None)
+        assert panel.spacing == 0
+
+    def test_spacing_zero_accepted(self) -> None:
+        """Panel(spacing=0) is accepted."""
+        panel = Panel(spacing=0)
+        assert panel.spacing == 0
+
+    def test_spacing_positive_accepted(self) -> None:
+        """Panel(spacing=10) is accepted."""
+        panel = Panel(spacing=10)
+        assert panel.spacing == 10
+
+    def test_spacing_negative_raises(self) -> None:
+        """Panel(spacing=-1) raises ValueError."""
+        with pytest.raises(ValueError, match="spacing cannot be negative"):
+            Panel(spacing=-1)
+
+
+# ==================================================================
+# F7: TweenManager validates target values for NaN/Inf
+# ==================================================================
+
+
+class TestTweenManagerFiniteValues:
+    """TweenManager.create() should reject NaN/Inf from_val and to_val."""
+
+    def test_from_val_nan_raises(self) -> None:
+        """create() with from_val=NaN raises ValueError."""
+        mgr = TweenManager()
+        target = type("T", (), {"x": 0.0})()
+        with pytest.raises(ValueError, match="from_val must be finite"):
+            mgr.create(target, "x", float("nan"), 100.0, 1.0)
+
+    def test_to_val_nan_raises(self) -> None:
+        """create() with to_val=NaN raises ValueError."""
+        mgr = TweenManager()
+        target = type("T", (), {"x": 0.0})()
+        with pytest.raises(ValueError, match="to_val must be finite"):
+            mgr.create(target, "x", 0.0, float("nan"), 1.0)
+
+    def test_from_val_inf_raises(self) -> None:
+        """create() with from_val=inf raises ValueError."""
+        mgr = TweenManager()
+        target = type("T", (), {"x": 0.0})()
+        with pytest.raises(ValueError, match="from_val must be finite"):
+            mgr.create(target, "x", float("inf"), 100.0, 1.0)
+
+    def test_to_val_neg_inf_raises(self) -> None:
+        """create() with to_val=-inf raises ValueError."""
+        mgr = TweenManager()
+        target = type("T", (), {"x": 0.0})()
+        with pytest.raises(ValueError, match="to_val must be finite"):
+            mgr.create(target, "x", 0.0, float("-inf"), 1.0)
+
+    def test_finite_values_accepted(self) -> None:
+        """create() with normal finite values works."""
+        mgr = TweenManager()
+        target = type("T", (), {"x": 0.0})()
+        tid = mgr.create(target, "x", 0.0, 100.0, 1.0)
+        assert tid >= 0

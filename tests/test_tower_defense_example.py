@@ -14,11 +14,11 @@ from pathlib import Path
 
 import pytest
 
+from easygame import Game, Theme
+
 _project_root = Path(__file__).resolve().parents[1]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
-
-from easygame import Game, Theme
 
 _example_asset_dir = _project_root / "examples" / "tower_defense" / "assets"
 

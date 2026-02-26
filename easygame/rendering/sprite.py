@@ -139,6 +139,10 @@ class Sprite:
         self._layer = layer
         self._x = float(position[0])
         self._y = float(position[1])
+        if not (math.isfinite(self._x) and math.isfinite(self._y)):
+            raise ValueError(
+                f"Sprite position must be finite, got ({self._x}, {self._y})"
+            )
         self._opacity = opacity
         self._visible = visible
         self._tint = tint
@@ -162,6 +166,7 @@ class Sprite:
 
         # Create the backend sprite.
         order = self._compute_order()
+        self._last_order: int = order
         self._sprite_id = self._backend.create_sprite(
             self._image_handle, order,
         )
@@ -183,15 +188,22 @@ class Sprite:
 
     @position.setter
     def position(self, value: tuple[float, float]) -> None:
-        self._x = float(value[0])
-        self._y = float(value[1])
-        if math.isnan(self._x) or math.isnan(self._y):
+        new_x = float(value[0])
+        new_y = float(value[1])
+        if not (math.isfinite(new_x) and math.isfinite(new_y)):
+            raise ValueError(
+                f"Sprite position must be finite, got ({new_x}, {new_y})"
+            )
+        if new_x == self._x and new_y == self._y:
             return
+        self._x = new_x
+        self._y = new_y
         self._sync_to_backend()
         if not self._removed:
-            self._backend.set_sprite_order(
-                self._sprite_id, self._compute_order(),
-            )
+            order = self._compute_order()
+            if order != self._last_order:
+                self._last_order = order
+                self._backend.set_sprite_order(self._sprite_id, order)
 
     @property
     def x(self) -> float:
@@ -199,7 +211,15 @@ class Sprite:
 
     @x.setter
     def x(self, value: float) -> None:
-        self.position = (value, self._y)
+        new_x = float(value)
+        if not math.isfinite(new_x):
+            raise ValueError(
+                f"Sprite position must be finite, got ({new_x}, {self._y})"
+            )
+        if new_x == self._x:
+            return
+        self._x = new_x
+        self._sync_to_backend()
 
     @property
     def y(self) -> float:
@@ -207,7 +227,20 @@ class Sprite:
 
     @y.setter
     def y(self, value: float) -> None:
-        self.position = (self._x, value)
+        new_y = float(value)
+        if not math.isfinite(new_y):
+            raise ValueError(
+                f"Sprite position must be finite, got ({self._x}, {new_y})"
+            )
+        if new_y == self._y:
+            return
+        self._y = new_y
+        self._sync_to_backend()
+        if not self._removed:
+            order = self._compute_order()
+            if order != self._last_order:
+                self._last_order = order
+                self._backend.set_sprite_order(self._sprite_id, order)
 
     @property
     def opacity(self) -> int:
@@ -535,8 +568,6 @@ class Sprite:
     def _sync_to_backend(self, *, image: Any | None = None) -> None:
         """Push current visual state to the backend."""
         if self._removed:
-            return
-        if math.isnan(self._x) or math.isnan(self._y):
             return
         dx, dy = _anchor_offset(self._anchor, self._img_w, self._img_h)
         draw_x = int(self._x - dx)

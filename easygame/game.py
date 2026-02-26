@@ -108,9 +108,9 @@ class Game:
         self._cursor: CursorManager | None = None
         self._save_manager: SaveManager | None = None
         self._hud: HUD | None = None
-        self._animated_sprites: set[Any] = set()
+        self._animated_sprites: WeakSet[Any] = WeakSet()
         self._all_sprites: WeakSet[Any] = WeakSet()
-        self._action_sprites: set[Any] = set()
+        self._action_sprites: WeakSet[Any] = WeakSet()
         self._particle_emitters: set[Any] = set()
 
         # Latest mouse position in logical screen coords (for camera edge scroll).
@@ -428,11 +428,51 @@ class Game:
 
         Called automatically by :meth:`run` on exit and by ``__del__``
         as a safety net.  Safe to call multiple times.
+
+        Drains the scene stack (calling ``on_exit`` / cleanup for each
+        scene), clears all sprite and emitter tracking sets, and nulls
+        out subsystem references so the entire game object graph becomes
+        eligible for garbage collection.
         """
         # Cancel all outstanding timers and tweens so their callbacks
         # (which may capture scenes, sprites, etc.) can be GC'd.
         self._timer_manager.cancel_all()
         self._tween_manager.cancel_all()
+
+        # Drain the scene stack: call on_exit + cleanup for every scene
+        # so owned sprites, timers, and emitters are released.
+        while self._scene_stack._stack:
+            scene = self._scene_stack._stack.pop()
+            try:
+                scene.on_exit()
+            except Exception:
+                _logger.exception(
+                    "Error in on_exit() during teardown for %s",
+                    type(scene).__name__,
+                )
+            try:
+                self._scene_stack._cleanup_exiting_scene(scene)
+            except Exception:
+                _logger.exception(
+                    "Error in cleanup during teardown for %s",
+                    type(scene).__name__,
+                )
+
+        # Clear sprite and emitter tracking sets so remaining objects
+        # (e.g. sprites not owned by any scene) can be GC'd.
+        self._all_sprites.clear()
+        self._animated_sprites.clear()
+        self._action_sprites.clear()
+        self._particle_emitters.clear()
+
+        # Null out subsystem references to break reference cycles and
+        # allow GC of the entire game graph.
+        self._hud = None
+        self._assets = None
+        self._audio = None
+        self._cursor = None
+        self._save_manager = None
+        self._theme = None
 
         # Clear module-level globals only if they still point to *this*
         # Game instance, so concurrent Game objects don't clobber each
@@ -650,7 +690,7 @@ class Game:
 
         saved: list[tuple[Any, int, int, bool]] = []
 
-        for sprite in self._all_sprites:
+        for sprite in list(self._all_sprites):
             # Compute the draw corner (world-space top-left of the image).
             anchor_dx, anchor_dy = _anchor_offset(
                 sprite._anchor, sprite._img_w, sprite._img_h,
