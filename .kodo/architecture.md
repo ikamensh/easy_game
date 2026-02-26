@@ -929,3 +929,20 @@ Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
 - API F1 (`SaveError` not exported): `SaveError` is already in `__init__.py` imports and `__all__`. Phantom → changed to skip.
 
 **Coverage gaps filled:** F71-F82 (deprecated Callable imports, style-only → skip), F87-F92 (Any-typed parameters, mostly duplicates of existing batch fixes).
+
+---
+
+## Architect Review (Stage 5 Triage Verification)
+
+**Triage coverage:** 28 findings (F1-F28) across 4 source categories verified. Static analysis (9), architecture (8), prior unresolved easygame items (5), consumer/packaging (6). Edge-case adversarial file had 0 findings (65 tests, all passing). Prior unresolved `kodo/` items correctly excluded (not part of easygame project).
+
+**Skip verdicts confirmed correct:** All 15 skips verified against source code. Key validations:
+- F1 (`backend -> object`): docstring explicitly marks as non-public, intentional encapsulation
+- F4/F14 (global state): `_teardown()` has `is self` guards at lines 508-511
+- F5 (100_000 magic number): documented in docstring at line 555
+- F10 (flush loop): `max_iterations = 1000` cap at line 436
+- F28 (save slot): validation exists at lines 85-88, 118-121, 151-154
+
+**Fix verdicts confirmed real:** All 8 fix items verified. F2 (layout helpers missing from `__all__`), F3 (4 unused `result` vars in test_animation.py), F6 (Image.open context manager — minor), F7 (missing `-> None` on test functions), F8 (2 %-format strings in actions.py), F9 (Pillow CVE), F23-F25 (packaging gaps).
+
+**Minor gap (not blocking):** Prior unresolved item about `Game.after()` / `Scene.after()` docstrings (whether to document timer survival across scene transitions) was dropped without a verdict. This is a documentation-only item, not a correctness issue. The architecture doc above already documents the behavior: "scene-scoped timers auto-cancelled on exit; `game.after()` only for cross-scene timers."
