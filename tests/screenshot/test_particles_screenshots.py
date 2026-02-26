@@ -20,8 +20,7 @@ import random
 
 import pytest
 
-from easygame import Scene, Sprite
-from easygame.rendering.layers import RenderLayer, SpriteAnchor
+from easygame import Scene
 from easygame.rendering.particles import ParticleEmitter
 
 from tests.screenshot.harness import assert_screenshot, render_scene

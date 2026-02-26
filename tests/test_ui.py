@@ -15,7 +15,6 @@ from easygame.input import InputEvent
 from easygame.ui import (
     Anchor,
     Button,
-    Component,
     ImageBox,
     Label,
     Layout,
@@ -31,7 +30,6 @@ from easygame.ui.layout import (
     compute_content_size,
     compute_flow_layout,
 )
-from easygame.ui.theme import ResolvedStyle
 
 
 # ------------------------------------------------------------------

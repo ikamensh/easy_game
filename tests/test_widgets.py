@@ -14,7 +14,6 @@ from easygame.backends.mock_backend import MockBackend
 from easygame.input import InputEvent
 from easygame.ui import (
     Anchor,
-    Component,
     DataTable,
     Grid,
     ImageBox,

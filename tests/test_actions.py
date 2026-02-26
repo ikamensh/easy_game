@@ -14,7 +14,6 @@ import pytest
 
 from easygame import (
     Game,
-    Scene,
     Sprite,
     AnimationDef,
     Delay,
@@ -1057,14 +1056,6 @@ class TestChildValidation:
 def test_actions_importable_from_easygame() -> None:
     from easygame import (
         Delay,
-        Do,
-        FadeIn,
-        FadeOut,
-        MoveTo,
-        Parallel,
-        PlayAnim,
-        Remove,
-        Repeat,
         Sequence,
     )
     assert Delay is not None

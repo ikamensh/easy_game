@@ -8,8 +8,6 @@ All tests use the MockBackend (headless) — no display required.
 
 from __future__ import annotations
 
-import json
-import math
 from pathlib import Path
 
 import pytest

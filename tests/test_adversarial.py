@@ -6,7 +6,6 @@ during sensitive phases. All tests use MockBackend (headless).
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 import pytest
@@ -16,7 +15,6 @@ from easygame.assets import AssetManager
 from easygame.backends.mock_backend import MockBackend
 from easygame.input import InputEvent
 from easygame.ui import Anchor, Component
-from easygame.ui.component import _UIRoot
 from easygame.util.fsm import StateMachine
 
 

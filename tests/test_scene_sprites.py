@@ -7,7 +7,6 @@ import pytest
 from easygame import Game, Scene, Sprite
 from easygame.assets import AssetManager
 from easygame.backends.mock_backend import MockBackend
-from easygame.rendering.layers import RenderLayer
 
 
 # ------------------------------------------------------------------

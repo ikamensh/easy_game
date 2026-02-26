@@ -20,7 +20,6 @@ from easygame.backends.mock_backend import MockBackend
 from examples.battle_vignette.battle_demo import (
     ATTACK_DAMAGE,
     BattleScene,
-    HIT_RADIUS,
 )
 
 

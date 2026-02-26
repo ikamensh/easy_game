@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from easygame import Game, Scene, Sprite
+from easygame import Game, Scene
 from easygame.assets import AssetManager
 from easygame.backends.mock_backend import MockBackend
 from easygame.input import InputEvent, _with_world_coords

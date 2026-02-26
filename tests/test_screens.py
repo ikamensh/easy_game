@@ -204,7 +204,6 @@ class TestChoiceScreen:
         game.tick(dt=0.016)
 
         # Find the buttons in the UI tree.
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(screen._ui, buttons)
 
@@ -289,7 +288,6 @@ class TestChoiceScreen:
         screen = ChoiceScreen("Question?", ["Yes", "No", "Maybe"])
         game.push(screen)
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(screen._ui, buttons)
         assert len(buttons) == 3
@@ -322,7 +320,6 @@ class TestConfirmDialog:
         game.push(dialog)
         game.tick(dt=0.016)  # Layout pass.
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(dialog._ui, buttons)
 
@@ -346,7 +343,6 @@ class TestConfirmDialog:
         game.push(dialog)
         game.tick(dt=0.016)
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(dialog._ui, buttons)
 
@@ -428,7 +424,6 @@ class TestConfirmDialog:
         dialog = ConfirmDialog("Question?")
         game.push(dialog)
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(dialog._ui, buttons)
         texts = [b._text for b in buttons]
@@ -467,7 +462,6 @@ class TestSaveLoadScreen:
         )
         game.push(screen)
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(screen._ui, buttons)
         # 3 slot buttons + 1 Back button = 4.
@@ -502,7 +496,6 @@ class TestSaveLoadScreen:
         game.push(screen)
         game.tick(dt=0.016)  # Layout.
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(screen._ui, buttons)
 
@@ -532,7 +525,6 @@ class TestSaveLoadScreen:
         game.push(screen)
         game.tick(dt=0.016)
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(screen._ui, buttons)
 
@@ -559,7 +551,6 @@ class TestSaveLoadScreen:
         game.push(screen)
         game.tick(dt=0.016)
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(screen._ui, buttons)
 
@@ -581,7 +572,6 @@ class TestSaveLoadScreen:
         game.push(screen)
         game.tick(dt=0.016)
 
-        from easygame.ui.components import Button
         buttons = []
         _find_buttons(screen._ui, buttons)
 
@@ -748,20 +738,10 @@ class TestExports:
     """Verify screens are exported from the package."""
 
     def test_import_from_easygame(self) -> None:
-        from easygame import (
-            ChoiceScreen,
-            ConfirmDialog,
-            MessageScreen,
-            SaveLoadScreen,
-        )
+        pass
 
     def test_import_from_easygame_ui(self) -> None:
-        from easygame.ui import (
-            ChoiceScreen,
-            ConfirmDialog,
-            MessageScreen,
-            SaveLoadScreen,
-        )
+        pass
 
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,7 @@ import pytest
 from easygame import Game, Scene
 from easygame.backends.base import MouseEvent
 from easygame.input import InputEvent
-from easygame.ui.component import Component, _UIRoot
+from easygame.ui.component import Component
 from easygame.ui.drag_drop import DragManager, _DragSession
 from easygame.ui.theme import Theme
 

@@ -4,7 +4,6 @@ import pytest
 
 from easygame import Game, Scene
 from easygame.backends.base import KeyEvent, MouseEvent
-from easygame.backends.mock_backend import MockBackend
 from easygame.input import InputEvent, InputManager
 
 

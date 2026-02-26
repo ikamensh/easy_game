@@ -8,7 +8,7 @@ from easygame import Game, Scene, Sprite
 from easygame.assets import AssetManager
 from easygame.backends.mock_backend import MockBackend
 from easygame.rendering.layers import RenderLayer, SpriteAnchor
-from easygame.rendering.sprite import _anchor_offset, _current_game
+from easygame.rendering.sprite import _anchor_offset
 
 
 # ------------------------------------------------------------------

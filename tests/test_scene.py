@@ -1,8 +1,6 @@
 """Tests for Scene and SceneStack lifecycle and deferred operations."""
 
-import pytest
 
-from easygame.backends.base import KeyEvent
 from easygame.input import InputEvent
 from easygame.scene import Scene, SceneStack
 

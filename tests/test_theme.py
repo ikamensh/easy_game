@@ -1,6 +1,5 @@
 """Tests for easygame.ui.theme."""
 
-import pytest
 
 from easygame.ui.theme import Style, Theme
 

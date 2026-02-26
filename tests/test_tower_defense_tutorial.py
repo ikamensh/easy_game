@@ -374,7 +374,7 @@ def test_ch5_health_bars_drawn(td_game: Game) -> None:
 def test_ch5_splash_tower_damages_multiple(td_game: Game) -> None:
     """ch5: Splash tower deals area damage to multiple enemies."""
     from tutorials.tower_defense.ch5_combat import (
-        GameScene, TOWER_DEFS, TILE_SIZE, ENEMY_PATH_PX,
+        GameScene, TOWER_DEFS, TILE_SIZE,
     )
 
     td_game.push(GameScene())
@@ -404,7 +404,7 @@ def test_ch5_splash_tower_damages_multiple(td_game: Game) -> None:
 def test_ch5_projectile_cleanup_on_scene_exit(td_game: Game) -> None:
     """ch5: Projectiles are cleaned up when the scene exits."""
     from tutorials.tower_defense.ch5_combat import (
-        TitleScene, GameScene, TOWER_DEFS, TILE_SIZE,
+        TitleScene, TOWER_DEFS, TILE_SIZE,
     )
 
     td_game.push(TitleScene())

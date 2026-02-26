@@ -23,7 +23,6 @@ import pytest
 from easygame import (
     AnimationDef,
     Delay,
-    Do,
     FadeOut,
     MoveTo,
     Parallel,
