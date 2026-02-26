@@ -789,7 +789,8 @@ review. **13 fix, 31 skip, 1 needs-decision.** Key lessons:
 
 ## Fix & Report (Stage 6) — Verified
 
-All 13 "fix" + 1 "needs-decision" findings implemented. **1252 tests passing.**
+All 14 "fix" verdicts implemented + 1 "needs-decision" documented. **1318 tests passing.**
+Ruff warnings reduced from 31 → 23 (remaining: unused vars + lambda assigns in tests).
 
 **Key implementation patterns:**
 - `SceneStack._cleanup_exiting_scene(scene)` centralizes post-on_exit cleanup (sprites,
@@ -874,6 +875,25 @@ Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
 ---
 
 ## Triage Verification Notes (Stage 4)
+
+## Triage Review Notes (Stage 5 Verification)
+
+**Bug found during triage review — fixed:**
+- `TweenManager.cancel_all()` and `TimerManager.cancel_all()` both called `.clear()` without
+  setting `cancelled = True` on each entry first. Since `update()` iterates a snapshot copy
+  (`list(self._tweens.items())`), calling `cancel_all()` from within a callback during `update()`
+  left snapshot entries with `cancelled = False`, allowing them to still fire their `on_complete`
+  callbacks. Fixed by iterating and setting `cancelled = True` before `.clear()`.
+
+**Triage verdict quality:**
+- Static F5 ("unused type: ignore comments") was overstated — most `# type: ignore` comments
+  are genuinely needed (Pillow stubs, pyglet duck-typing, lazy init patterns). Only 2-3 in
+  `components.py` and `save.py` could be cleaned up by fixing underlying types.
+- API F-016 was incorrectly skipped — the `cancel_all()` race condition is a real correctness
+  bug. The same pattern existed in both `TimerManager` and `TweenManager`.
+- All other skip verdicts spot-checked and confirmed justified.
+
+---
 
 **Confirmed real bugs (for Stage 5 fix pass):**
 - Grid `_cell_at` divides by zero when `cell_size=(0,0)` + `spacing=0`
