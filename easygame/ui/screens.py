@@ -30,10 +30,10 @@ Usage::
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from easygame.input import InputEvent
+
 from easygame.scene import Scene
 from easygame.ui.components import Button, Label, Panel
 from easygame.ui.layout import Anchor, Layout
@@ -41,6 +41,8 @@ from easygame.ui.theme import Style
 from easygame.ui.widgets import ProgressBar
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from easygame.save import SaveManager
 
 
@@ -129,7 +131,7 @@ class ChoiceScreen(Scene):
         prompt: str,
         choices: list[str],
         *,
-        on_choice: Callable[[int], Any] | None = None,
+        on_choice: Callable[[int], None] | None = None,
     ) -> None:
         self._prompt = prompt
         self._choices = list(choices)
@@ -283,8 +285,8 @@ class SaveLoadScreen(Scene):
         mode: str = "load",
         *,
         save_manager: SaveManager | None = None,
-        on_save: Callable[[int], Any] | None = None,
-        on_load: Callable[[int, dict[str, Any]], Any] | None = None,
+        on_save: Callable[[int], None] | None = None,
+        on_load: Callable[[int, dict[str, Any]], None] | None = None,
         slot_count: int = 10,
     ) -> None:
         if mode not in ("save", "load"):

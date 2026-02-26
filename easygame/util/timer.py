@@ -9,8 +9,12 @@ checked before firing, no catch-up on large dt for repeating timers.
 
 from __future__ import annotations
 
+import logging
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -196,13 +200,24 @@ class TimerManager:
         scheduled as a new one-shot timer inheriting the rest of the chain.
         For repeating timers the entire chain is cloned each repetition.
         """
+        if not math.isfinite(dt):
+            return
         to_remove: list[int] = []
         for timer_id, timer in list(self._timers.items()):
             if timer.cancelled:
                 continue
             timer.remaining -= dt
             if timer.remaining <= 0:
-                timer.callback()
+                try:
+                    timer.callback()
+                except Exception:
+                    _logger.exception(
+                        "Timer callback %r raised; removing timer %d",
+                        timer.callback,
+                        timer_id,
+                    )
+                    to_remove.append(timer_id)
+                    continue
                 # The callback may have cancelled this timer.
                 if timer.cancelled:
                     continue

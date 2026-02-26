@@ -22,6 +22,8 @@ import math
 import random
 from typing import TYPE_CHECKING, Any
 
+from easygame.util.tween import Ease
+
 if TYPE_CHECKING:
     from easygame.input import InputEvent
     from easygame.rendering.sprite import Sprite
@@ -286,7 +288,7 @@ class Camera:
         x: float,
         y: float,
         duration: float,
-        ease: Any = None,
+        ease: Ease | None = None,
     ) -> None:
         """Smoothly pan the viewport center to ``(x, y)`` over *duration* seconds.
 

@@ -27,10 +27,11 @@ from __future__ import annotations
 
 import copy
 import math
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from easygame.animation import AnimationDef
     from easygame.rendering.sprite import Sprite
 
@@ -280,8 +281,13 @@ class MoveTo(Action):
     def __init__(self, position: tuple[float, float], speed: float) -> None:
         if speed <= 0:
             raise ValueError(f"speed must be > 0, got {speed}")
-        self._target_x = float(position[0])
-        self._target_y = float(position[1])
+        x, y = float(position[0]), float(position[1])
+        if not (math.isfinite(x) and math.isfinite(y)):
+            raise ValueError(
+                f"target position must be finite floats, got ({position[0]!r}, {position[1]!r})"
+            )
+        self._target_x = x
+        self._target_y = y
         self._speed = speed
         self._sprite: Sprite | None = None
 
@@ -415,6 +421,10 @@ class Repeat(Action):
     """
 
     def __init__(self, action: Action, times: int | None = None) -> None:
+        if not isinstance(action, Action):
+            raise TypeError(
+                f"Repeat child must be an Action, got {type(action).__name__}"
+            )
         self._action_template = action
         self._times = times  # None = forever
         self._count = 0

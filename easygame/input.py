@@ -122,6 +122,9 @@ class InputManager:
     old binding.  Binding a key that is already bound to a *different*
     action steals it (unbinds the old action first).
 
+    Currently only one key can be bound to one action (1:1 mapping).
+    Multi-key support may be added in a future version if needed.
+
     Default bindings::
 
         confirm → return
@@ -175,13 +178,17 @@ class InputManager:
     # Translation
     # ------------------------------------------------------------------
 
-    def translate(self, raw_events: list[Event]) -> list[InputEvent]:
+    def translate(self, raw_events: list[Event] | None) -> list[InputEvent]:
         """Translate a list of raw backend events into :class:`InputEvent` s.
 
         :class:`WindowEvent` objects are **not** translated — they are
         handled by the framework before this method is called and should
         not appear in *raw_events*.
+
+        If *raw_events* is ``None``, returns ``[]``.
         """
+        if raw_events is None:
+            return []
         result: list[InputEvent] = []
         for event in raw_events:
             if isinstance(event, KeyEvent):

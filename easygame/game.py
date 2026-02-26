@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import weakref
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 from weakref import WeakSet
@@ -74,6 +75,14 @@ class Game:
         save_dir: Path | str | None = None,
         asset_path: Path | str | None = None,
     ) -> None:
+        import easygame.rendering.sprite as _sprite_mod
+
+        if _sprite_mod._current_game is not None:
+            raise RuntimeError(
+                "A Game instance already exists. "
+                "Call game._teardown() or game.quit() before creating a new one."
+            )
+
         self._title = title
         self._save_dir_override = Path(save_dir) if save_dir is not None else None
         self._asset_path = Path(asset_path) if asset_path is not None else None
@@ -111,7 +120,7 @@ class Game:
         self._animated_sprites: WeakSet[Any] = WeakSet()
         self._all_sprites: WeakSet[Any] = WeakSet()
         self._action_sprites: WeakSet[Any] = WeakSet()
-        self._particle_emitters: set[Any] = set()
+        self._particle_emitters: weakref.WeakSet[Any] = weakref.WeakSet()
 
         # Latest mouse position in logical screen coords (for camera edge scroll).
         self._mouse_x: float | None = None
@@ -471,6 +480,7 @@ class Game:
                 )
             try:
                 self._scene_stack._cleanup_exiting_scene(scene)
+                self._scene_stack._teardown_exited_scene(scene)
             except Exception:
                 _logger.exception(
                     "Error in cleanup during teardown for %s",
@@ -644,11 +654,12 @@ class Game:
                 clear_color = bc
 
         self._backend.begin_frame(clear_color)
-        self._scene_stack.draw()
-        self._backend.end_frame()
-
-        if saved is not None:
-            self._restore_sprites(saved)
+        try:
+            self._scene_stack.draw()
+        finally:
+            self._backend.end_frame()
+            if saved is not None:
+                self._restore_sprites(saved)
 
     # ------------------------------------------------------------------
     # Action update

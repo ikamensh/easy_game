@@ -8,10 +8,13 @@ Uses module-level ``_tween_manager`` set by :class:`Game` during init.
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Easing functions (quadratic, t in 0.0..1.0)
@@ -140,6 +143,8 @@ class TweenManager:
 
     def update(self, dt: float) -> None:
         """Advance all tweens by *dt* seconds."""
+        if not math.isfinite(dt):
+            return
         to_remove: list[int] = []
         for tween_id, t in list(self._tweens.items()):
             if t.cancelled:
@@ -148,7 +153,15 @@ class TweenManager:
             if t.elapsed >= t.duration:
                 setattr(t.target, t.prop, t.to_val)
                 if t.on_complete is not None:
-                    t.on_complete()
+                    try:
+                        t.on_complete()
+                    except Exception:
+                        _logger.exception(
+                            "Tween on_complete callback %r raised; "
+                            "removing tween %d",
+                            t.on_complete,
+                            tween_id,
+                        )
                 to_remove.append(tween_id)
             else:
                 progress = t.elapsed / t.duration

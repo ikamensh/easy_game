@@ -473,7 +473,7 @@ class List(Component):
         self,
         items: list[str] | None = None,
         *,
-        on_select: Callable[[int], Any] | None = None,
+        on_select: Callable[[int], None] | None = None,
         item_height: int = 30,
         width: int = 200,
         height: int | None = None,

@@ -30,6 +30,7 @@ from easygame.ui.widgets import (
 )
 
 __all__ = [
+    "HUD",
     "Anchor",
     "Button",
     "ChoiceScreen",
@@ -38,7 +39,6 @@ __all__ = [
     "DataTable",
     "DragManager",
     "Grid",
-    "HUD",
     "ImageBox",
     "Label",
     "Layout",

@@ -183,6 +183,14 @@ class DragManager:
 
         self._active = None
 
+    def cancel_active(self) -> None:
+        """Cancel any active drag session.
+
+        Called externally (e.g. when the UI root is being torn down) to
+        ensure no stale drag state lingers.
+        """
+        self._active = None
+
     def _cancel_drag(self) -> None:
         """Abort the drag without dropping."""
         self._active = None

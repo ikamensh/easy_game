@@ -25,6 +25,7 @@ from collections import deque
 from typing import TYPE_CHECKING, Any, Callable
 
 from easygame.rendering.layers import RenderLayer, SpriteAnchor
+from easygame.util.tween import Ease
 
 if TYPE_CHECKING:
     from easygame.actions import Action
@@ -103,6 +104,9 @@ class Sprite:
         color_swap:    Optional ColorSwap for per-pixel color replacement.
         team_palette:  Optional registered palette name (e.g. "blue").
                        Ignored if color_swap is set.
+
+    Raises:
+        RuntimeError: If created when no Game is active (e.g. after teardown).
     """
 
     def __init__(
@@ -192,7 +196,11 @@ class Sprite:
         return (self._x, self._y)
 
     @position.setter
-    def position(self, value: tuple[float, float]) -> None:
+    def position(self, value: tuple[float, float] | None) -> None:
+        if value is None:
+            raise ValueError(
+                "Sprite position cannot be None. Use a tuple like (0, 0) instead."
+            )
         new_x = float(value[0])
         new_y = float(value[1])
         if not (math.isfinite(new_x) and math.isfinite(new_y)):
@@ -252,6 +260,8 @@ class Sprite:
 
     @opacity.setter
     def opacity(self, value: int | float) -> None:
+        if not math.isfinite(value):
+            value = 0.0 if value < 0 or value != value else 255.0  # -Inf/NaN->0, Inf->255
         self._opacity = max(0, min(255, int(value)))
         self._sync_to_backend()
 
@@ -469,7 +479,7 @@ class Sprite:
         target_pos: tuple[float, float],
         speed: float,
         *,
-        ease: Any = None,
+        ease: Ease | None = None,
         on_arrive: Callable[[], Any] | None = None,
     ) -> None:
         """Move to *target_pos* at *speed* pixels per second.

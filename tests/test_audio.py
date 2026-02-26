@@ -325,8 +325,8 @@ class TestPlayMusic:
         old_player_id = audio._current_player_id
         audio.play_music("battle")
 
-        # Old player was stopped.
-        assert backend._music_players[old_player_id]["playing"] is False
+        # Old player was stopped and removed.
+        assert old_player_id not in backend._music_players
         # New player is active.
         assert audio._current_player_id is not None
         assert audio._current_player_id != old_player_id
@@ -370,7 +370,7 @@ class TestStopMusic:
         player_id = audio._current_player_id
         audio.stop_music()
 
-        assert backend._music_players[player_id]["playing"] is False
+        assert player_id not in backend._music_players
 
     def test_stop_music_clears_state(
         self, audio: AudioManager,
@@ -448,8 +448,8 @@ class TestCrossfadeMusic:
         for _ in range(70):  # 70 * 0.016 ≈ 1.12s
             game.tick(dt=0.016)
 
-        # Old player stopped.
-        assert backend._music_players[old_player_id]["playing"] is False
+        # Old player stopped and removed.
+        assert old_player_id not in backend._music_players
         # New player at full volume (master=1, music=1, base=1).
         new_player_id = game.audio._current_player_id
         assert backend._music_players[new_player_id]["volume"] == pytest.approx(1.0)
@@ -523,8 +523,8 @@ class TestCrossfadeMusic:
         # Interrupt with second crossfade.
         game.audio.crossfade_music("victory", duration=1.0)
 
-        # The exploration player (was fading out during first crossfade) is stopped.
-        assert backend._music_players[exploration_player]["playing"] is False
+        # The exploration player (was fading out during first crossfade) is stopped and removed.
+        assert exploration_player not in backend._music_players
         # The battle player is now the old player fading out.
         # The victory player is the new current.
         assert game.audio._current_music_name == "victory"
@@ -605,9 +605,9 @@ class TestCrossfadeMusic:
         # Stop in the middle.
         game.audio.stop_music()
 
-        # Both players stopped.
-        assert backend._music_players[exploration_player]["playing"] is False
-        assert backend._music_players[battle_player]["playing"] is False
+        # Both players stopped and removed.
+        assert exploration_player not in backend._music_players
+        assert battle_player not in backend._music_players
         assert game.audio._current_player_id is None
         assert game.audio._crossfade_tween_ids == []
 
@@ -954,6 +954,6 @@ class TestGameIntegration:
         for _ in range(40):
             game.tick(dt=0.016)
 
-        # Old stopped, new at full volume.
-        assert backend._music_players[old_player]["playing"] is False
+        # Old stopped and removed, new at full volume.
+        assert old_player not in backend._music_players
         assert backend._music_players[new_player]["volume"] == pytest.approx(1.0)

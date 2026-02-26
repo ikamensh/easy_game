@@ -257,8 +257,8 @@ class TestTimerChainAdversarial:
         assert order == ["parent"]
         assert "then" not in order
 
-    def test_then_callback_throws_propagates(self, game: Game) -> None:
-        """then() callback that raises propagates the exception."""
+    def test_then_callback_throws_is_caught_and_removed(self, game: Game) -> None:
+        """then() callback that raises is caught, logged, and the timer removed."""
         def parent_cb() -> None:
             pass
 
@@ -269,8 +269,11 @@ class TestTimerChainAdversarial:
         handle.then(then_cb, 0.0)
 
         game.tick(dt=0.016)
-        with pytest.raises(ValueError, match="then callback failed"):
-            game.tick(dt=0.016)
+        # The then-chain fires on the next tick.  The exception is caught
+        # and logged, not propagated.
+        game.tick(dt=0.016)  # should NOT raise
+        # Timer should have been removed.
+        assert len(game._timer_manager._timers) == 0
 
 
 # ==================================================================

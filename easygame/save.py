@@ -136,6 +136,8 @@ class SaveManager:
 
         Each entry is a dict with ``version``, ``timestamp``,
         ``scene_class``, and ``slot`` keys — or ``None`` for empty slots.
+
+        If *count* <= 0, returns an empty list.
         """
         result: list[dict[str, Any] | None] = []
         for i in range(1, count + 1):

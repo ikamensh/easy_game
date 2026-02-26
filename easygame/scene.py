@@ -403,7 +403,12 @@ class SceneStack:
         self._apply_pop()
 
     def replace(self, scene: Scene) -> None:
-        """Replace top scene. Old gets on_exit, new gets on_enter. No on_reveal."""
+        """Replace top scene. Old gets on_exit, new gets on_enter. No on_reveal.
+
+        The old scene is popped before the new one is pushed. If the new
+        scene's on_enter raises, rollback only pops the failed scene; the
+        old scene is not restored.
+        """
         if scene is None:
             raise ValueError("replace() requires a Scene instance, got None")
         if self._should_defer():
@@ -454,10 +459,15 @@ class SceneStack:
             self._flushing = False
 
     def _cleanup_exiting_scene(self, scene: Scene) -> None:
-        """Run all cleanup for a scene that is leaving the stack.
+        """Run common cleanup for a scene whose ``on_exit()`` has been called.
 
         Called **after** ``scene.on_exit()``.  Cleans up owned sprites,
         timers, particle emitters, and cancels camera pan tweens.
+
+        Note: the UI tree is NOT cleared here because this method is also
+        called when a scene is *pushed over* (it stays on the stack and
+        may be revealed later).  Use :meth:`_teardown_exited_scene` for
+        scenes that are permanently leaving the stack.
         """
         scene._cleanup_owned_sprites()
         scene._cleanup_owned_timers()
@@ -468,6 +478,18 @@ class SceneStack:
         # camera (and therefore the scene) after the scene exits.
         if scene.camera is not None:
             scene.camera._cancel_pan()
+
+    def _teardown_exited_scene(self, scene: Scene) -> None:
+        """Final cleanup for a scene that is permanently leaving the stack.
+
+        Clears the UI tree (including any active drag session) and sets
+        ``scene.game = None`` so the entire scene graph can be GC'd.
+        """
+        if scene._ui is not None:
+            if scene._ui._drag_manager is not None:
+                scene._ui._drag_manager.cancel_active()
+            scene._ui = None
+        scene.game = None  # type: ignore[assignment]
 
     def _apply_push(self, scene: Scene) -> None:
         if self._stack:
@@ -495,6 +517,7 @@ class SceneStack:
             old.on_exit()
             self._cleanup_exiting_scene(old)
             self._stack.pop()
+            self._teardown_exited_scene(old)
             if self._stack:
                 self._stack[-1].on_reveal()
         finally:
@@ -508,6 +531,7 @@ class SceneStack:
                 old.on_exit()
                 self._cleanup_exiting_scene(old)
                 self._stack.pop()
+                self._teardown_exited_scene(old)
             finally:
                 self._in_on_exit = False
         scene.game = self._game
@@ -524,6 +548,7 @@ class SceneStack:
             for s in reversed(self._stack):
                 s.on_exit()
                 self._cleanup_exiting_scene(s)
+                self._teardown_exited_scene(s)
             self._stack.clear()
         finally:
             self._in_on_exit = False

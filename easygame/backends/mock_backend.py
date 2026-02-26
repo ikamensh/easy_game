@@ -395,8 +395,8 @@ class MockBackend:
             self.music_volume = volume
 
     def stop_player(self, player_id: str) -> None:
-        """Stop and mark a music player as inactive."""
-        player = self._music_players[player_id]
+        """Stop a music player and remove it from tracked players."""
+        player = self._music_players.pop(player_id)
         player["playing"] = False
         # If we just stopped the player that was providing music_playing,
         # see if any other player is still active.

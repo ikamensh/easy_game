@@ -73,6 +73,7 @@ from easygame.util.timer import TimerHandle
 from easygame.util.tween import Ease, tween
 
 __all__ = [
+    "HUD",
     "Action",
     "Anchor",
     "AnimationDef",
@@ -96,7 +97,6 @@ __all__ = [
     "FadeOut",
     "Game",
     "Grid",
-    "HUD",
     "ImageBox",
     "InputEvent",
     "InputManager",

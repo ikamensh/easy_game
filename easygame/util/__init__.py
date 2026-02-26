@@ -1,4 +1,4 @@
-"""Utility modules for EasyGame (timers, tweens, FSM, etc.).
+"""Utility modules for EasyGame: timers, tweens, FSM.
 
 Re-exports: StateMachine, TimerHandle, Ease.
 The tween() function is available from easygame (not here) to avoid shadowing

@@ -79,7 +79,7 @@ def test_mock_backend_records_sprite_text_sound(mock_game: Game, mock_backend: M
     assert len(mock_backend.sounds_played) >= 1
 
 
-def test_run_pushes_start_scene_and_loops(mock_backend: MockBackend) -> None:
+def test_run_pushes_start_scene_and_loops() -> None:
     """run() pushes the start scene, loops, and exits when quit is called."""
     game = Game("Test", backend="mock", resolution=(1920, 1080))
 
@@ -100,7 +100,7 @@ def test_run_pushes_start_scene_and_loops(mock_backend: MockBackend) -> None:
     assert game.running is False
 
 
-def test_run_calls_backend_quit_after_loop(mock_backend: MockBackend) -> None:
+def test_run_calls_backend_quit_after_loop() -> None:
     """run() calls backend.quit() after the loop exits."""
     game = Game("Test", backend="mock", resolution=(1920, 1080))
     backend = game.backend

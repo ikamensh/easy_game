@@ -186,7 +186,12 @@ class AudioManager:
             if optional:
                 return None
             raise
-        effective = self._volumes["master"] * self._volumes.get(channel, 1.0)
+        if channel not in self._volumes:
+            raise KeyError(
+                f"Unknown audio channel {channel!r}. "
+                f"Valid channels: {sorted(self._volumes)}"
+            )
+        effective = self._volumes["master"] * self._volumes[channel]
         self._backend.play_sound(handle, volume=effective)
 
     # ------------------------------------------------------------------

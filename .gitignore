@@ -63,3 +63,12 @@
 *.3dm
 *.max
 
+### Python & build
+__pycache__/
+build/
+dist/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
