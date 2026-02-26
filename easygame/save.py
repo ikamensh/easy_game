@@ -75,16 +75,28 @@ class SaveManager:
             state: JSON-serializable dict of game state.
             scene_class_name: Name of the scene class for informational
                 purposes (e.g. ``"WorldMapScene"``).
+
+        Raises:
+            ValueError: If slot < 1.
+            SaveError: If the file cannot be written (permission, I/O, or
+                non-serializable state).
         """
-        self._save_dir.mkdir(parents=True, exist_ok=True)
-        payload: dict[str, Any] = {
-            "version": 1,
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-            "scene_class": scene_class_name,
-            "state": state,
-        }
-        path = self._slot_path(slot)
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        if slot < 1:
+            raise ValueError("slot must be >= 1")
+        try:
+            self._save_dir.mkdir(parents=True, exist_ok=True)
+            payload: dict[str, Any] = {
+                "version": 1,
+                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+                "scene_class": scene_class_name,
+                "state": state,
+            }
+            path = self._slot_path(slot)
+            path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        except (PermissionError, OSError, TypeError) as exc:
+            raise SaveError(
+                f"Cannot write save file for slot {slot}: {self._slot_path(slot)}: {exc}"
+            ) from exc
 
     def load(self, slot: int) -> dict[str, Any] | None:
         """Read the save file for *slot*.
@@ -93,9 +105,12 @@ class SaveManager:
         or ``None`` if the slot is empty (file doesn't exist).
 
         Raises:
+            ValueError: If slot < 1.
             SaveError: If the file exists but cannot be parsed (corrupted
                 JSON, I/O error, etc.).
         """
+        if slot < 1:
+            raise ValueError("slot must be >= 1")
         path = self._slot_path(slot)
         if not path.exists():
             return None
@@ -125,6 +140,8 @@ class SaveManager:
 
     def delete(self, slot: int) -> None:
         """Delete the save file for *slot*.  No-op if slot is empty."""
+        if slot < 1:
+            raise ValueError("slot must be >= 1")
         path = self._slot_path(slot)
         if path.exists():
             path.unlink()

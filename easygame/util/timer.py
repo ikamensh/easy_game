@@ -125,7 +125,12 @@ class TimerManager:
         """Schedule a one-shot callback after *delay* seconds.
 
         Returns a :class:`TimerHandle` for cancellation and chaining.
+
+        Raises:
+            ValueError: If delay is negative.
         """
+        if delay < 0:
+            raise ValueError("delay must be >= 0")
         timer_id = self._next_id
         self._next_id += 1
         chain_ids: list[int] = [timer_id]

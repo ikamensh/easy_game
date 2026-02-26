@@ -191,6 +191,8 @@ class Delay(Action):
     """Wait for *seconds*, then finish."""
 
     def __init__(self, seconds: float) -> None:
+        if seconds < 0:
+            raise ValueError("seconds must be >= 0")
         self._seconds = seconds
         self._elapsed = 0.0
 

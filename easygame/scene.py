@@ -433,7 +433,10 @@ class SceneStack:
             return
         self._flushing = True
         try:
-            while self._pending_ops:
+            max_iterations = 1000  # Cap to prevent infinite hang if on_enter
+            iterations = 0
+            while self._pending_ops and iterations < max_iterations:
+                iterations += 1
                 op = self._pending_ops.popleft()
                 kind = op[0]
                 if kind == "pop":

@@ -314,12 +314,12 @@ class TestSaveManagerEdgeCases:
         mgr = SaveManager(tmp_path / "saves")
         assert mgr.load(99) is None
 
-    def test_save_non_serializable_raises_type_error(
+    def test_save_non_serializable_raises_save_error(
         self, tmp_path: Path
     ) -> None:
-        """save() with non-JSON-serializable data raises TypeError."""
+        """save() with non-JSON-serializable data raises SaveError."""
         mgr = SaveManager(tmp_path / "saves")
-        with pytest.raises(TypeError):
+        with pytest.raises(SaveError, match="Cannot write save file"):
             mgr.save(1, {"obj": object()}, "TestScene")
 
     def test_corrupted_json_raises_save_error(
