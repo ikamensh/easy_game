@@ -43,7 +43,7 @@ class TrackingScene(Scene):
         return False
 
 
-def test_push_calls_on_enter():
+def test_push_calls_on_enter() -> None:
     """push(B) when empty: B.game set, B.on_enter() called."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -57,7 +57,7 @@ def test_push_calls_on_enter():
     assert b.exits == []
 
 
-def test_push_calls_on_exit_on_previous_top():
+def test_push_calls_on_exit_on_previous_top() -> None:
     """push(B) when A is top: A.on_exit() then B.on_enter()."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -73,7 +73,7 @@ def test_push_calls_on_exit_on_previous_top():
     assert stack.top() is b
 
 
-def test_pop_calls_on_exit_and_on_reveal():
+def test_pop_calls_on_exit_and_on_reveal() -> None:
     """pop() when B on top of A: B.on_exit(), remove B, A.on_reveal()."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -90,7 +90,7 @@ def test_pop_calls_on_exit_and_on_reveal():
     assert a.exits == ["A"]  # from when B was pushed over A
 
 
-def test_replace_calls_on_exit_and_on_enter_no_reveal():
+def test_replace_calls_on_exit_and_on_enter_no_reveal() -> None:
     """replace(B) when A is top: A.on_exit(), remove A, B.on_enter()."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -106,7 +106,7 @@ def test_replace_calls_on_exit_and_on_enter_no_reveal():
     assert a.reveals == []  # replace does not call on_reveal
 
 
-def test_clear_and_push_calls_on_exit_on_all():
+def test_clear_and_push_calls_on_exit_on_all() -> None:
     """clear_and_push(C) when A,B on stack: B.on_exit(), A.on_exit(), C.on_enter()."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -126,7 +126,7 @@ def test_clear_and_push_calls_on_exit_on_all():
     assert c.enters == ["C"]
 
 
-def test_deferred_push_during_tick():
+def test_deferred_push_during_tick() -> None:
     """push() during update is deferred until flush."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -147,7 +147,7 @@ def test_deferred_push_during_tick():
     assert b.enters == ["B"]
 
 
-def test_deferred_pop_during_tick():
+def test_deferred_pop_during_tick() -> None:
     """pop() during handle_input is deferred until flush."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -168,7 +168,7 @@ def test_deferred_pop_during_tick():
     assert a.reveals == ["A"]
 
 
-def test_push_outside_tick_executes_immediately():
+def test_push_outside_tick_executes_immediately() -> None:
     """push() when not in tick executes immediately."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -181,7 +181,7 @@ def test_push_outside_tick_executes_immediately():
     assert not stack._pending_ops
 
 
-def test_empty_stack_top_returns_none():
+def test_empty_stack_top_returns_none() -> None:
     """top() on empty stack returns None."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -189,7 +189,7 @@ def test_empty_stack_top_returns_none():
     assert stack.top() is None
 
 
-def test_pop_empty_stack_no_crash():
+def test_pop_empty_stack_no_crash() -> None:
     """pop() on empty stack does not crash."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -198,7 +198,7 @@ def test_pop_empty_stack_no_crash():
     assert stack.top() is None
 
 
-def test_update_and_draw_empty_stack_no_crash():
+def test_update_and_draw_empty_stack_no_crash() -> None:
     """update() and draw() on empty stack do not crash."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -207,7 +207,7 @@ def test_update_and_draw_empty_stack_no_crash():
     stack.draw()
 
 
-def test_update_calls_top_scene():
+def test_update_calls_top_scene() -> None:
     """update(dt) calls top scene's update with dt."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -219,7 +219,7 @@ def test_update_calls_top_scene():
     assert a.updates == [0.032]
 
 
-def test_draw_only_top_opaque_scene():
+def test_draw_only_top_opaque_scene() -> None:
     """draw() with two opaque scenes only draws the top one."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -235,7 +235,7 @@ def test_draw_only_top_opaque_scene():
     assert b.draws == 1
 
 
-def test_pause_below_false_updates_scenes_below():
+def test_pause_below_false_updates_scenes_below() -> None:
     """When top has pause_below=False, scene below also gets update."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -251,7 +251,7 @@ def test_pause_below_false_updates_scenes_below():
     assert b.updates == [0.016]
 
 
-def test_draw_transparent_scene_shows_scene_below():
+def test_draw_transparent_scene_shows_scene_below() -> None:
     """draw() with transparent top scene draws both scenes."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -268,7 +268,7 @@ def test_draw_transparent_scene_shows_scene_below():
     assert b.draws == 1
 
 
-def test_draw_three_scenes_transparency_chain():
+def test_draw_three_scenes_transparency_chain() -> None:
     """draw() walks through transparent scenes until an opaque one."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -290,7 +290,7 @@ def test_draw_three_scenes_transparency_chain():
     assert c.draws == 1
 
 
-def test_draw_all_transparent_draws_entire_stack():
+def test_draw_all_transparent_draws_entire_stack() -> None:
     """draw() draws all scenes when every scene is transparent."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -312,7 +312,7 @@ def test_draw_all_transparent_draws_entire_stack():
     assert c.draws == 1
 
 
-def test_draw_single_scene():
+def test_draw_single_scene() -> None:
     """draw() with a single scene always draws it."""
     game = FakeGame()
     stack = SceneStack(game)
@@ -324,7 +324,7 @@ def test_draw_single_scene():
     assert a.draws == 1
 
 
-def test_scene_handle_input_default_returns_false():
+def test_scene_handle_input_default_returns_false() -> None:
     """Default handle_input returns False (not consumed)."""
     s = Scene()
     event = InputEvent(type="key_press", key="space")
@@ -336,7 +336,7 @@ def test_scene_handle_input_default_returns_false():
 # ---------------------------------------------------------------------------
 
 
-def test_background_color_none_passes_no_clear_color(mock_game, mock_backend):
+def test_background_color_none_passes_no_clear_color(mock_game: object, mock_backend: object) -> None:
     """Scene without background_color: begin_frame receives clear_color=None."""
     class PlainScene(Scene):
         pass
@@ -347,7 +347,7 @@ def test_background_color_none_passes_no_clear_color(mock_game, mock_backend):
     assert mock_backend.clear_color is None
 
 
-def test_background_color_rgb_passes_clear_color(mock_game, mock_backend):
+def test_background_color_rgb_passes_clear_color(mock_game: object, mock_backend: object) -> None:
     """Scene with background_color=(R,G,B): begin_frame receives it (alpha=255 implied)."""
     class GreenScene(Scene):
         background_color = (34, 139, 34)
@@ -358,7 +358,7 @@ def test_background_color_rgb_passes_clear_color(mock_game, mock_backend):
     assert mock_backend.clear_color == (34, 139, 34)
 
 
-def test_background_color_rgba_passes_clear_color(mock_game, mock_backend):
+def test_background_color_rgba_passes_clear_color(mock_game: object, mock_backend: object) -> None:
     """Scene with background_color=(R,G,B,A): begin_frame receives full tuple."""
     class SemiTransparentScene(Scene):
         background_color = (25, 30, 40, 200)
@@ -369,7 +369,7 @@ def test_background_color_rgba_passes_clear_color(mock_game, mock_backend):
     assert mock_backend.clear_color == (25, 30, 40, 200)
 
 
-def test_background_color_uses_base_scene_when_transparent_overlay(mock_game, mock_backend):
+def test_background_color_uses_base_scene_when_transparent_overlay(mock_game: object, mock_backend: object) -> None:
     """When top scene is transparent, base (opaque) scene's background_color is used."""
     class BaseScene(Scene):
         background_color = (100, 50, 25, 255)
@@ -386,7 +386,7 @@ def test_background_color_uses_base_scene_when_transparent_overlay(mock_game, mo
     assert mock_backend.clear_color == (100, 50, 25, 255)
 
 
-def test_get_base_scene_empty_returns_none():
+def test_get_base_scene_empty_returns_none() -> None:
     """get_base_scene() on empty stack returns None."""
     from easygame.scene import SceneStack
 
@@ -397,7 +397,7 @@ def test_get_base_scene_empty_returns_none():
     assert stack.get_base_scene() is None
 
 
-def test_get_base_scene_single_returns_it():
+def test_get_base_scene_single_returns_it() -> None:
     """get_base_scene() with one scene returns that scene."""
     from easygame.scene import SceneStack
 

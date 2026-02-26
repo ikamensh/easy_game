@@ -16,6 +16,10 @@ Resolution variant support::
 
 The asset manager is owned by :class:`~easygame.game.Game` and exposed as
 ``game.assets``.
+
+Cache management::
+
+    game.assets.clear_cache()   # drop all cached handles (images, sounds, frames)
 """
 
 from __future__ import annotations
@@ -265,6 +269,28 @@ class AssetManager:
             self._music_path_cache[name] = str(path)
 
         return self._backend.load_music(self._music_path_cache[name])
+
+    # ------------------------------------------------------------------
+    # Cache management
+    # ------------------------------------------------------------------
+
+    def clear_cache(self) -> None:
+        """Drop all cached asset handles.
+
+        After calling this, subsequent :meth:`image`, :meth:`sound`, and
+        :meth:`frames` calls will re-load from disk.  Useful for level
+        transitions or procedural-content workflows where old assets are
+        no longer needed and memory pressure is a concern.
+
+        .. note:: This does **not** invalidate backend-side resources
+           (textures, audio buffers).  Those are freed when the handles
+           are garbage-collected.
+        """
+        self._image_cache.clear()
+        self._swapped_cache.clear()
+        self._frames_cache.clear()
+        self._sound_cache.clear()
+        self._music_path_cache.clear()
 
     def _resolve_audio_path(
         self,

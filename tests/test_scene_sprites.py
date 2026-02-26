@@ -315,7 +315,6 @@ def test_early_remove_then_scene_exit_no_double_remove(
     game: Game, backend: MockBackend,
 ) -> None:
     """Sprite removed early is not double-removed when scene exits."""
-    remove_calls = []
 
     class GameScene(Scene):
         def on_enter(self) -> None:

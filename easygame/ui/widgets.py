@@ -4,7 +4,7 @@
 *   :class:`ProgressBar` — horizontal filled bar via ``draw_rect``.
 *   :class:`TextBox` — multi-line text with word wrapping and optional
     typewriter reveal.
-*   :class:`List` — scrollable list of selectable text items with
+*   :class:`ListWidget` — scrollable list of selectable text items with
     keyboard navigation.
 *   :class:`Grid` — grid of fixed-size cells, each optionally holding a
     child component.  Click to select.
@@ -443,11 +443,11 @@ class TextBox(Component):
 
 
 # ---------------------------------------------------------------------------
-# List
+# ListWidget
 # ---------------------------------------------------------------------------
 
 
-class List(Component):
+class ListWidget(Component):
     """Scrollable list of selectable text items with keyboard navigation.
 
     Displays a vertical list of string labels.  One item may be selected

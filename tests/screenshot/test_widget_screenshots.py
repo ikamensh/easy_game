@@ -25,7 +25,7 @@ from easygame.ui import (
     Grid,
     Label,
     Layout,
-    List,
+    ListWidget,
     Panel,
     ProgressBar,
     Style,
@@ -112,7 +112,7 @@ def test_textbox_instant() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 3. List with 5 items and selection at index 2
+# 3. ListWidget with 5 items and selection at index 2
 # ---------------------------------------------------------------------------
 
 @pytest.mark.screenshot
@@ -131,7 +131,7 @@ def test_list_with_selection() -> None:
                 spacing=8,
             )
             panel.add(Label("Save Files", style=Style(font_size=20)))
-            lst = List(
+            lst = ListWidget(
                 ["Slot 1 - Castle", "Slot 2 - Forest", "Slot 3 - Dungeon",
                  "Slot 4 - Village", "Slot 5 - Empty"],
                 width=280,

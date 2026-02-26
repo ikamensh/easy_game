@@ -77,15 +77,20 @@ class ColorSwap:
         """Load image at path, replace colors, return PIL Image.
 
         Preserves alpha. Unmatched pixels are unchanged.
+
+        Only PNG images are accepted.  The ``formats`` restriction is a
+        defence-in-depth measure against CVE-2026-25990 (Pillow PSD
+        out-of-bounds write) and any future format-specific vulnerabilities.
         """
         from PIL import Image
 
-        img = Image.open(image_path).convert("RGBA")
+        with Image.open(image_path, formats=["PNG"]) as raw:
+            img: Image.Image = raw.convert("RGBA")
         pixels = img.load()
         if pixels is None:
             raise RuntimeError(
                 f"Failed to load pixel data from image: {image_path}."
-                " Ensure the file exists, is a valid image format, and that"
+                " Ensure the file exists, is a valid PNG image, and that"
                 " Pillow (PIL) is installed."
             )
         color_map = dict(zip(self.source_colors, self.target_colors))

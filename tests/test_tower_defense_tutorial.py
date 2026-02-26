@@ -299,11 +299,9 @@ def test_ch5_tower_fires_projectile(td_game: Game) -> None:
     assert len(gs._enemies) >= 1
 
     # Run a bit more to give the tower time to fire.
-    fired = False
     for _ in range(100):
         td_game.tick(dt=0.016)
         if gs._gold > 150:  # Started with 200, spent 50 → 150; kill gives 10
-            fired = True
             break
 
     # Tower should have dealt damage or killed at least one enemy.
@@ -444,7 +442,7 @@ def test_ch6_scene_loads_with_audio(td_game: Game) -> None:
     for _ in range(5):
         td_game.tick(dt=0.016)
 
-    gs = td_game._scene_stack._stack[-1]
+    td_game._scene_stack._stack[-1]
     texts = [t["text"] for t in td_game.backend.texts]
     assert any("Score" in t for t in texts)
     assert any("Wave" in t for t in texts)

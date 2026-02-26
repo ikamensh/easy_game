@@ -614,10 +614,10 @@ class TestEdgeCases:
         import time
 
         manager.save(1, {"v": 1}, "S")
-        ts1 = manager.load(1)["timestamp"]  # type: ignore[index]
+        manager.load(1)["timestamp"]  # type: ignore[index]
         time.sleep(0.01)  # Ensure time passes.
         manager.save(1, {"v": 2}, "S")
-        ts2 = manager.load(1)["timestamp"]  # type: ignore[index]
+        manager.load(1)["timestamp"]  # type: ignore[index]
         # Timestamps should differ (or at minimum, the state changed).
         loaded = manager.load(1)
         assert loaded is not None

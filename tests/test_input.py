@@ -63,19 +63,19 @@ class TestInputManagerDefaults:
     def test_confirm_bound_to_return(self) -> None:
         mgr = InputManager()
         bindings = mgr.get_bindings()
-        assert bindings["confirm"] == "return"
+        assert bindings["confirm"] == ["return"]
 
     def test_cancel_bound_to_escape(self) -> None:
         mgr = InputManager()
-        assert mgr.get_bindings()["cancel"] == "escape"
+        assert mgr.get_bindings()["cancel"] == ["escape"]
 
     def test_directional_defaults(self) -> None:
         mgr = InputManager()
         b = mgr.get_bindings()
-        assert b["up"] == "up"
-        assert b["down"] == "down"
-        assert b["left"] == "left"
-        assert b["right"] == "right"
+        assert b["up"] == ["up"]
+        assert b["down"] == ["down"]
+        assert b["left"] == ["left"]
+        assert b["right"] == ["right"]
 
     def test_six_default_bindings(self) -> None:
         mgr = InputManager()
@@ -252,7 +252,7 @@ class TestInputManagerBindings:
         """get_bindings() returns a copy, not the internal dict."""
         mgr = InputManager()
         b = mgr.get_bindings()
-        b["hacked"] = "x"
+        b["hacked"] = ["x"]
         assert "hacked" not in mgr.get_bindings()
 
 

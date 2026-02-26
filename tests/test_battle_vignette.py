@@ -63,15 +63,15 @@ def _tick_many(game: Game, n: int, dt: float = 1 / 60) -> None:
         game.tick(dt=dt)
 
 
-def _warriors(scene: BattleScene):
+def _warriors(scene: BattleScene) -> list:
     return [u for u in scene.units if u.team == "friendly"]
 
 
-def _skeletons(scene: BattleScene):
+def _skeletons(scene: BattleScene) -> list:
     return [u for u in scene.units if u.team == "enemy"]
 
 
-def _alive_skeletons(scene: BattleScene):
+def _alive_skeletons(scene: BattleScene) -> list:
     return [u for u in _skeletons(scene) if u.alive]
 
 

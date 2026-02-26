@@ -169,7 +169,7 @@ class TestAnimationPlayerLooping:
             loop=True,
         )
         # 5 frame durations = 2.5 loops through 2 frames → index 1
-        result = player.update(0.5)
+        player.update(0.5)
         assert player.frame_index == 1
         assert player.is_playing is True
 
@@ -273,7 +273,7 @@ class TestAnimationPlayerOneShot:
             loop=False,
             on_complete=on_done,
         )
-        result = player.update(0.1)
+        player.update(0.1)
         # Frame tried to advance past index 0 → clamped to 0, finished
         assert player.is_complete is True
         assert callback_fired is True
@@ -286,7 +286,7 @@ class TestAnimationPlayerOneShot:
             frame_duration=0.1,
             loop=False,
         )
-        result = player.update(1.0)  # 10 frames worth, but only 3 frames
+        player.update(1.0)  # 10 frames worth, but only 3 frames
         assert player.is_complete is True
         assert player.current_frame == "h2"
 
@@ -325,6 +325,6 @@ class TestAnimationPlayerEdgeCases:
             frame_duration=0.1,
             loop=True,
         )
-        result = player.update(0.5)
+        player.update(0.5)
         assert player.is_playing is True
         assert player.current_frame == "h0"

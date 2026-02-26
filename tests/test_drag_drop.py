@@ -35,12 +35,12 @@ def mock_game() -> Game:
 
 
 @pytest.fixture
-def mock_backend(mock_game):
+def mock_backend(mock_game: Game) -> object:
     return mock_game.backend
 
 
 @pytest.fixture
-def scene_with_ui(mock_game):
+def scene_with_ui(mock_game: Game) -> Scene:
     """Push a scene and return it (with game reference set)."""
     scene = Scene()
     mock_game.push(scene)
@@ -119,13 +119,13 @@ def _make_box(
 class TestDragManagerConstruction:
     """DragManager basic lifecycle."""
 
-    def test_initial_state(self, scene_with_ui):
+    def test_initial_state(self, scene_with_ui) -> None:
         dm = scene_with_ui.ui.drag_manager
         assert isinstance(dm, DragManager)
         assert dm.is_dragging is False
         assert dm.drag_data is None
 
-    def test_lazy_creation(self, scene_with_ui):
+    def test_lazy_creation(self, scene_with_ui) -> None:
         """DragManager is not created until first access."""
         # Access .ui to create _UIRoot, but _drag_manager should still be None.
         root = scene_with_ui.ui
@@ -133,7 +133,7 @@ class TestDragManagerConstruction:
         _ = root.drag_manager
         assert root._drag_manager is not None
 
-    def test_same_instance(self, scene_with_ui):
+    def test_same_instance(self, scene_with_ui) -> None:
         """Repeated access returns the same DragManager."""
         dm1 = scene_with_ui.ui.drag_manager
         dm2 = scene_with_ui.ui.drag_manager
@@ -147,19 +147,19 @@ class TestDragManagerConstruction:
 class TestComponentDragAttributes:
     """Component drag-drop attribute defaults and settings."""
 
-    def test_defaults(self):
+    def test_defaults(self) -> None:
         c = Component(width=10, height=10)
         assert c.draggable is False
         assert c.drag_data is None
         assert c.drop_accept is None
         assert c.on_drop is None
 
-    def test_draggable_set(self):
+    def test_draggable_set(self) -> None:
         c = Component(width=10, height=10, draggable=True, drag_data="sword")
         assert c.draggable is True
         assert c.drag_data == "sword"
 
-    def test_drop_target_set(self):
+    def test_drop_target_set(self) -> None:
         accept_fn = lambda data: isinstance(data, str)
         drop_fn = lambda comp, data: None
         c = Component(
@@ -170,7 +170,7 @@ class TestComponentDragAttributes:
         assert c.drop_accept is accept_fn
         assert c.on_drop is drop_fn
 
-    def test_attributes_mutable(self):
+    def test_attributes_mutable(self) -> None:
         c = Component(width=10, height=10)
         c.draggable = True
         c.drag_data = {"item": "potion"}
@@ -185,7 +185,7 @@ class TestComponentDragAttributes:
 class TestDragStart:
     """Starting a drag session via click on draggable component."""
 
-    def test_click_on_draggable_starts_drag(self, scene_with_ui):
+    def test_click_on_draggable_starts_drag(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=True, drag_data="item_A")
         root.add(box)
@@ -198,7 +198,7 @@ class TestDragStart:
         assert root.drag_manager.is_dragging is True
         assert root.drag_manager.drag_data == "item_A"
 
-    def test_click_on_non_draggable_no_drag(self, scene_with_ui):
+    def test_click_on_non_draggable_no_drag(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=False)
         root.add(box)
@@ -209,7 +209,7 @@ class TestDragStart:
 
         assert root.drag_manager.is_dragging is False
 
-    def test_right_click_does_not_start_drag(self, scene_with_ui):
+    def test_right_click_does_not_start_drag(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=True, drag_data="x")
         root.add(box)
@@ -220,7 +220,7 @@ class TestDragStart:
 
         assert root.drag_manager.is_dragging is False
 
-    def test_click_outside_does_not_start_drag(self, scene_with_ui):
+    def test_click_outside_does_not_start_drag(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, w=50, h=50, draggable=True, drag_data="x")
         root.add(box)
@@ -231,7 +231,7 @@ class TestDragStart:
 
         assert root.drag_manager.is_dragging is False
 
-    def test_disabled_component_no_drag(self, scene_with_ui):
+    def test_disabled_component_no_drag(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=True, drag_data="x")
         box.enabled = False
@@ -243,7 +243,7 @@ class TestDragStart:
 
         assert root.drag_manager.is_dragging is False
 
-    def test_invisible_component_no_drag(self, scene_with_ui):
+    def test_invisible_component_no_drag(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=True, drag_data="x")
         box.visible = False
@@ -263,7 +263,7 @@ class TestDragStart:
 class TestGhostTracking:
     """Ghost position tracking during drag."""
 
-    def test_ghost_starts_at_source_position(self, scene_with_ui):
+    def test_ghost_starts_at_source_position(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=True, drag_data="x")
         root.add(box)
@@ -278,7 +278,7 @@ class TestGhostTracking:
         assert session.ghost_x == 100  # source._computed_x
         assert session.ghost_y == 100  # source._computed_y
 
-    def test_ghost_follows_move(self, scene_with_ui):
+    def test_ghost_follows_move(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=True, drag_data="x")
         root.add(box)
@@ -297,7 +297,7 @@ class TestGhostTracking:
         assert session.ghost_x == 180
         assert session.ghost_y == 220
 
-    def test_ghost_follows_drag_event(self, scene_with_ui):
+    def test_ghost_follows_drag_event(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         box = _make_box(x=100, y=100, draggable=True, drag_data="x")
         root.add(box)
@@ -322,7 +322,7 @@ class TestGhostTracking:
 class TestDropOnValidTarget:
     """Dropping on a component that accepts the data."""
 
-    def test_drop_fires_on_drop(self, scene_with_ui):
+    def test_drop_fires_on_drop(self, scene_with_ui) -> None:
         dropped = []
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="potion")
@@ -350,7 +350,7 @@ class TestDropOnValidTarget:
         assert dropped[0][0] is target
         assert dropped[0][1] == "potion"
 
-    def test_drop_on_target_that_rejects(self, scene_with_ui):
+    def test_drop_on_target_that_rejects(self, scene_with_ui) -> None:
         dropped = []
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="sword")
@@ -370,8 +370,8 @@ class TestDropOnValidTarget:
         assert root.drag_manager.is_dragging is False
         assert len(dropped) == 0  # on_drop NOT called
 
-    def test_drop_on_non_target(self, scene_with_ui):
-        dropped = []
+    def test_drop_on_non_target(self, scene_with_ui) -> None:
+        dropped: list[str] = []
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
         non_target = _make_box(x=200, y=200)  # no drop_accept
@@ -386,7 +386,7 @@ class TestDropOnValidTarget:
         assert root.drag_manager.is_dragging is False
         assert len(dropped) == 0
 
-    def test_drop_on_empty_space(self, scene_with_ui):
+    def test_drop_on_empty_space(self, scene_with_ui) -> None:
         """Releasing over empty space cancels drag without error."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
@@ -407,7 +407,7 @@ class TestDropOnValidTarget:
 class TestCancelDrag:
     """Cancelling a drag with Escape key."""
 
-    def test_escape_cancels_drag(self, scene_with_ui):
+    def test_escape_cancels_drag(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
         root.add(source)
@@ -422,7 +422,7 @@ class TestCancelDrag:
         assert consumed is True
         assert root.drag_manager.is_dragging is False
 
-    def test_non_cancel_key_during_drag_consumed(self, scene_with_ui):
+    def test_non_cancel_key_during_drag_consumed(self, scene_with_ui) -> None:
         """Other key events are consumed during drag (not passed through)."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
@@ -446,7 +446,7 @@ class TestCancelDrag:
 class TestDropTargetFeedback:
     """Drop target highlight state tracking during drag."""
 
-    def test_hover_over_accepting_target(self, scene_with_ui):
+    def test_hover_over_accepting_target(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
         target = _make_box(
@@ -465,7 +465,7 @@ class TestDropTargetFeedback:
         assert session.current_target is target
         assert session.target_accepts is True
 
-    def test_hover_over_rejecting_target(self, scene_with_ui):
+    def test_hover_over_rejecting_target(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
         target = _make_box(
@@ -483,7 +483,7 @@ class TestDropTargetFeedback:
         assert session.current_target is target
         assert session.target_accepts is False
 
-    def test_hover_over_non_target(self, scene_with_ui):
+    def test_hover_over_non_target(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
         non_target = _make_box(x=200, y=200)  # no drop_accept
@@ -498,7 +498,7 @@ class TestDropTargetFeedback:
         assert session.current_target is None
         assert session.target_accepts is False
 
-    def test_target_changes_on_move(self, scene_with_ui):
+    def test_target_changes_on_move(self, scene_with_ui) -> None:
         """Moving from one target to another updates the current target."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
@@ -528,7 +528,7 @@ class TestDropTargetFeedback:
         assert root.drag_manager._active.current_target is target_b
         assert root.drag_manager._active.target_accepts is False
 
-    def test_source_is_not_drop_target(self, scene_with_ui):
+    def test_source_is_not_drop_target(self, scene_with_ui) -> None:
         """Cannot drop onto the source component itself."""
         root = scene_with_ui.ui
         dropped = []
@@ -559,7 +559,7 @@ class TestDropTargetFeedback:
 class TestGhostRendering:
     """Ghost and overlay rendering during draw phase."""
 
-    def test_ghost_rect_drawn_for_component(self, scene_with_ui, mock_backend):
+    def test_ghost_rect_drawn_for_component(self, scene_with_ui, mock_backend) -> None:
         """When source has no _image_handle, a fallback rect ghost is drawn."""
         root = scene_with_ui.ui
         source = _make_box(x=100, y=100, w=50, h=50, draggable=True, drag_data="x")
@@ -581,7 +581,7 @@ class TestGhostRendering:
         ]
         assert len(ghost_rects) == 1
 
-    def test_accept_highlight_drawn(self, scene_with_ui, mock_backend):
+    def test_accept_highlight_drawn(self, scene_with_ui, mock_backend) -> None:
         """Green highlight is drawn on a valid drop target."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
@@ -608,7 +608,7 @@ class TestGhostRendering:
         ]
         assert len(highlight_rects) == 1
 
-    def test_reject_highlight_drawn(self, scene_with_ui, mock_backend):
+    def test_reject_highlight_drawn(self, scene_with_ui, mock_backend) -> None:
         """Red highlight is drawn on an invalid drop target."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="item")
@@ -635,7 +635,7 @@ class TestGhostRendering:
         ]
         assert len(highlight_rects) == 1
 
-    def test_no_ghost_when_not_dragging(self, scene_with_ui, mock_backend):
+    def test_no_ghost_when_not_dragging(self, scene_with_ui, mock_backend) -> None:
         """No ghost or highlights when not dragging."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="x")
@@ -656,19 +656,19 @@ class TestGhostRendering:
 class TestThemeDragProperties:
     """Theme default values for drag-and-drop colors."""
 
-    def test_default_drop_accept_color(self):
+    def test_default_drop_accept_color(self) -> None:
         theme = Theme()
         assert theme.drop_accept_color == (0, 180, 0, 80)
 
-    def test_default_drop_reject_color(self):
+    def test_default_drop_reject_color(self) -> None:
         theme = Theme()
         assert theme.drop_reject_color == (180, 0, 0, 80)
 
-    def test_default_ghost_opacity(self):
+    def test_default_ghost_opacity(self) -> None:
         theme = Theme()
         assert theme.ghost_opacity == 0.5
 
-    def test_custom_theme_colors(self):
+    def test_custom_theme_colors(self) -> None:
         theme = Theme(
             drop_accept_color=(0, 255, 0, 100),
             drop_reject_color=(255, 0, 0, 100),
@@ -686,7 +686,7 @@ class TestThemeDragProperties:
 class TestGameTickIntegration:
     """Full integration with Game.tick() and event injection."""
 
-    def test_drag_via_game_tick(self, mock_game, mock_backend):
+    def test_drag_via_game_tick(self, mock_game, mock_backend) -> None:
         """Full drag lifecycle via game.tick() with mock backend events."""
         scene = Scene()
         mock_game.push(scene)
@@ -720,7 +720,7 @@ class TestGameTickIntegration:
         assert not scene.ui.drag_manager.is_dragging
         assert dropped == ["spell"]
 
-    def test_cancel_via_escape_in_game_tick(self, mock_game, mock_backend):
+    def test_cancel_via_escape_in_game_tick(self, mock_game, mock_backend) -> None:
         """Escape during drag cancels via game.tick()."""
         scene = Scene()
         mock_game.push(scene)
@@ -737,7 +737,7 @@ class TestGameTickIntegration:
         mock_game.tick(dt=0.016)
         assert not scene.ui.drag_manager.is_dragging
 
-    def test_ghost_drawn_during_frame(self, mock_game, mock_backend):
+    def test_ghost_drawn_during_frame(self, mock_game, mock_backend) -> None:
         """Ghost rect appears in the backend during a frame with active drag."""
         scene = Scene()
         mock_game.push(scene)
@@ -768,7 +768,7 @@ class TestGameTickIntegration:
 class TestNestedComponents:
     """Drag-drop with nested component trees."""
 
-    def test_drag_child_in_parent(self, scene_with_ui):
+    def test_drag_child_in_parent(self, scene_with_ui) -> None:
         """A draggable child inside a non-draggable parent."""
         root = scene_with_ui.ui
         parent = _make_box(x=0, y=0, w=300, h=300)
@@ -782,7 +782,7 @@ class TestNestedComponents:
         assert root.drag_manager.is_dragging
         assert root.drag_manager.drag_data == "nested"
 
-    def test_deepest_drop_target_wins(self, scene_with_ui):
+    def test_deepest_drop_target_wins(self, scene_with_ui) -> None:
         """The deepest matching drop target in the tree wins."""
         dropped_inner = []
         dropped_outer = []
@@ -826,7 +826,7 @@ class TestNestedComponents:
 class TestDragDataTypes:
     """Various data types as drag_data."""
 
-    def test_none_data(self, scene_with_ui):
+    def test_none_data(self, scene_with_ui) -> None:
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data=None)
         root.add(source)
@@ -835,7 +835,7 @@ class TestDragDataTypes:
         root.handle_event(InputEvent(type="click", x=30, y=30, button="left"))
         assert root.drag_manager.drag_data is None
 
-    def test_dict_data(self, scene_with_ui):
+    def test_dict_data(self, scene_with_ui) -> None:
         data = {"type": "weapon", "name": "Excalibur", "damage": 50}
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data=data)
@@ -845,7 +845,7 @@ class TestDragDataTypes:
         root.handle_event(InputEvent(type="click", x=30, y=30, button="left"))
         assert root.drag_manager.drag_data is data
 
-    def test_object_data(self, scene_with_ui):
+    def test_object_data(self, scene_with_ui) -> None:
         class Item:
             def __init__(self, name):
                 self.name = name
@@ -876,7 +876,7 @@ class TestDragDataTypes:
 class TestDragSessionDataclass:
     """Direct testing of _DragSession dataclass."""
 
-    def test_fields(self):
+    def test_fields(self) -> None:
         source = Component(width=10, height=10)
         session = _DragSession(
             source=source,
@@ -904,7 +904,7 @@ class TestDragSessionDataclass:
 class TestEdgeCases:
     """Edge cases for drag-and-drop."""
 
-    def test_drop_on_target_with_accept_but_no_on_drop(self, scene_with_ui):
+    def test_drop_on_target_with_accept_but_no_on_drop(self, scene_with_ui) -> None:
         """Target has drop_accept but no on_drop — silently cancels."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="x")
@@ -924,7 +924,7 @@ class TestEdgeCases:
         # Should not raise — gracefully cancelled
         assert root.drag_manager.is_dragging is False
 
-    def test_multiple_drags_in_sequence(self, scene_with_ui):
+    def test_multiple_drags_in_sequence(self, scene_with_ui) -> None:
         """Starting a new drag after the first one ends."""
         dropped = []
         root = scene_with_ui.ui
@@ -952,7 +952,7 @@ class TestEdgeCases:
         assert len(dropped) == 2
         assert dropped == ["a", "b"]
 
-    def test_drag_cancel_then_new_drag(self, scene_with_ui):
+    def test_drag_cancel_then_new_drag(self, scene_with_ui) -> None:
         """Cancel a drag, then start a new one."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="x")
@@ -969,7 +969,7 @@ class TestEdgeCases:
         root.handle_event(InputEvent(type="click", x=30, y=30, button="left"))
         assert root.drag_manager.is_dragging
 
-    def test_all_events_consumed_during_drag(self, scene_with_ui):
+    def test_all_events_consumed_during_drag(self, scene_with_ui) -> None:
         """All event types are consumed while dragging."""
         root = scene_with_ui.ui
         source = _make_box(x=10, y=10, draggable=True, drag_data="x")
@@ -985,7 +985,7 @@ class TestEdgeCases:
         assert root.handle_event(InputEvent(type="key_press", key="a")) is True
         assert root.handle_event(InputEvent(type="scroll", x=30, y=30, dx=0, dy=5)) is True
 
-    def test_drag_manager_handle_event_when_not_dragging(self, scene_with_ui):
+    def test_drag_manager_handle_event_when_not_dragging(self, scene_with_ui) -> None:
         """DragManager.handle_event returns False when not dragging."""
         dm = scene_with_ui.ui.drag_manager
         event = InputEvent(type="move", x=100, y=100)

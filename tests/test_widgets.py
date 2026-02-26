@@ -1,4 +1,4 @@
-"""Tests for Stage 9 UI Widgets: ImageBox, ProgressBar, TextBox, List,
+"""Tests for Stage 9 UI Widgets: ImageBox, ProgressBar, TextBox, ListWidget,
 Grid, Tooltip, TabGroup, DataTable.
 """
 
@@ -18,7 +18,7 @@ from easygame.ui import (
     Grid,
     ImageBox,
     Label,
-    List,
+    ListWidget,
     Panel,
     ProgressBar,
     Style,
@@ -402,34 +402,34 @@ class TestTextBox:
 
 
 # ==================================================================
-# 4. List (~14 tests)
+# 4. ListWidget (~14 tests)
 # ==================================================================
 
 
 class TestList:
-    """List creation, selection, keyboard nav, mouse click, scroll."""
+    """ListWidget creation, selection, keyboard nav, mouse click, scroll."""
 
     def test_creation_empty(self) -> None:
         """List with no items starts empty."""
-        lst = List()
+        lst = ListWidget()
         assert lst.items == []
         assert lst.selected_index is None
         assert lst.item_height == 30
 
     def test_creation_with_items(self) -> None:
         """List with initial items stores them."""
-        lst = List(["A", "B", "C"])
+        lst = ListWidget(["A", "B", "C"])
         assert lst.items == ["A", "B", "C"]
         assert lst.selected_index is None
 
     def test_selected_index_starts_none(self) -> None:
         """selected_index is None until explicitly set."""
-        lst = List(["X", "Y"])
+        lst = ListWidget(["X", "Y"])
         assert lst.selected_index is None
 
     def test_selected_index_clamped(self) -> None:
         """Setting selected_index beyond bounds clamps it."""
-        lst = List(["A", "B", "C"])
+        lst = ListWidget(["A", "B", "C"])
         lst.selected_index = 99
         assert lst.selected_index == 2  # last valid
         lst.selected_index = -5
@@ -437,13 +437,13 @@ class TestList:
 
     def test_selected_index_none_on_empty(self) -> None:
         """selected_index becomes None for empty list."""
-        lst = List()
+        lst = ListWidget()
         lst.selected_index = 5
         assert lst.selected_index is None
 
     def test_keyboard_down_selects_first(self) -> None:
         """Down action selects index 0 when nothing selected."""
-        lst = List(["A", "B", "C"])
+        lst = ListWidget(["A", "B", "C"])
         lst.compute_layout(0, 0, 200, 90)
         event = InputEvent(type="key", action="down")
         consumed = lst.on_event(event)
@@ -452,7 +452,7 @@ class TestList:
 
     def test_keyboard_down_moves(self) -> None:
         """Down action moves selection down by one."""
-        lst = List(["A", "B", "C"])
+        lst = ListWidget(["A", "B", "C"])
         lst.compute_layout(0, 0, 200, 90)
         lst._selected_index = 0
         event = InputEvent(type="key", action="down")
@@ -461,7 +461,7 @@ class TestList:
 
     def test_keyboard_up_selects_last(self) -> None:
         """Up action selects last item when nothing selected."""
-        lst = List(["A", "B", "C"])
+        lst = ListWidget(["A", "B", "C"])
         lst.compute_layout(0, 0, 200, 90)
         event = InputEvent(type="key", action="up")
         lst.on_event(event)
@@ -469,7 +469,7 @@ class TestList:
 
     def test_keyboard_up_moves(self) -> None:
         """Up action moves selection up by one."""
-        lst = List(["A", "B", "C"])
+        lst = ListWidget(["A", "B", "C"])
         lst.compute_layout(0, 0, 200, 90)
         lst._selected_index = 2
         event = InputEvent(type="key", action="up")
@@ -478,7 +478,7 @@ class TestList:
 
     def test_keyboard_down_clamps_at_bottom(self) -> None:
         """Down action stops at last item."""
-        lst = List(["A", "B"])
+        lst = ListWidget(["A", "B"])
         lst.compute_layout(0, 0, 200, 60)
         lst._selected_index = 1
         event = InputEvent(type="key", action="down")
@@ -488,7 +488,7 @@ class TestList:
     def test_confirm_fires_on_select(self) -> None:
         """Confirm action calls on_select with current index."""
         received = []
-        lst = List(["A", "B"], on_select=lambda i: received.append(i))
+        lst = ListWidget(["A", "B"], on_select=lambda i: received.append(i))
         lst.compute_layout(0, 0, 200, 60)
         lst._selected_index = 1
         event = InputEvent(type="key", action="confirm")
@@ -498,7 +498,7 @@ class TestList:
 
     def test_confirm_no_callback_no_crash(self) -> None:
         """Confirm with no on_select and no selection is safe."""
-        lst = List(["A"])
+        lst = ListWidget(["A"])
         lst.compute_layout(0, 0, 200, 30)
         event = InputEvent(type="key", action="confirm")
         consumed = lst.on_event(event)
@@ -507,7 +507,7 @@ class TestList:
     def test_mouse_click_selects_item(self) -> None:
         """Clicking on an item row selects it."""
         received = []
-        lst = List(["A", "B", "C"], on_select=lambda i: received.append(i))
+        lst = ListWidget(["A", "B", "C"], on_select=lambda i: received.append(i))
         lst.compute_layout(0, 0, 200, 90)
         # Click in second item (row_height=30, so y=35 is in row 1)
         event = InputEvent(type="click", button="left", x=100, y=35)
@@ -518,7 +518,7 @@ class TestList:
 
     def test_mouse_click_outside_not_consumed(self) -> None:
         """Click outside list bounds is not consumed."""
-        lst = List(["A"], width=100, height=30)
+        lst = ListWidget(["A"], width=100, height=30)
         lst.compute_layout(0, 0, 100, 30)
         event = InputEvent(type="click", button="left", x=500, y=500)
         consumed = lst.on_event(event)
@@ -527,7 +527,7 @@ class TestList:
     def test_scroll_offset_changes(self) -> None:
         """Scroll event adjusts scroll_offset."""
         # 10 items at 30px each = 300px, but only 90px visible → 3 visible
-        lst = List([f"item{i}" for i in range(10)], height=90)
+        lst = ListWidget([f"item{i}" for i in range(10)], height=90)
         lst.compute_layout(0, 0, 200, 90)
         assert lst.scroll_offset == 0
         # Scroll down (dy < 0)
@@ -538,28 +538,28 @@ class TestList:
 
     def test_items_setter_clamps_selection(self) -> None:
         """Setting items clamps selection if out of new range."""
-        lst = List(["A", "B", "C"])
+        lst = ListWidget(["A", "B", "C"])
         lst._selected_index = 2
         lst.items = ["X"]  # only 1 item
         assert lst.selected_index == 0
 
     def test_items_setter_clears_on_empty(self) -> None:
         """Setting empty items clears selection."""
-        lst = List(["A", "B"])
+        lst = ListWidget(["A", "B"])
         lst._selected_index = 1
         lst.items = []
         assert lst.selected_index is None
 
     def test_preferred_size_auto_height(self) -> None:
         """Height auto-sizes from item count × item_height."""
-        lst = List(["A", "B", "C"], item_height=30)
+        lst = ListWidget(["A", "B", "C"], item_height=30)
         w, h = lst.get_preferred_size()
         assert w == 200  # default
         assert h == 90  # 3 × 30
 
     def test_preferred_size_explicit_height(self) -> None:
         """Explicit height overrides auto-size."""
-        lst = List(["A", "B", "C"], height=50)
+        lst = ListWidget(["A", "B", "C"], height=50)
         _, h = lst.get_preferred_size()
         assert h == 50
 
@@ -567,7 +567,7 @@ class TestList:
         self, root: _UIRoot, backend: MockBackend,
     ) -> None:
         """List draws background rect and text for each visible item."""
-        lst = List(["Alpha", "Beta"], width=200, height=60, anchor=Anchor.TOP_LEFT)
+        lst = ListWidget(["Alpha", "Beta"], width=200, height=60, anchor=Anchor.TOP_LEFT)
         root.add(lst)
         root._ensure_layout()
         root.draw()
@@ -584,7 +584,7 @@ class TestList:
         self, root: _UIRoot, backend: MockBackend, game: Game,
     ) -> None:
         """Selected item draws a highlight rect."""
-        lst = List(["Alpha", "Beta"], width=200, height=60, anchor=Anchor.TOP_LEFT)
+        lst = ListWidget(["Alpha", "Beta"], width=200, height=60, anchor=Anchor.TOP_LEFT)
         lst._selected_index = 0
         root.add(lst)
         root._ensure_layout()
@@ -597,7 +597,7 @@ class TestList:
     def test_on_select_callback_on_keyboard(self) -> None:
         """Keyboard nav fires on_select callback."""
         received = []
-        lst = List(["A", "B", "C"], on_select=lambda i: received.append(i))
+        lst = ListWidget(["A", "B", "C"], on_select=lambda i: received.append(i))
         lst.compute_layout(0, 0, 200, 90)
         lst.on_event(InputEvent(type="key", action="down"))
         assert received == [0]
@@ -965,7 +965,7 @@ class TestTabGroup:
         """Active tab's content is visible, others are hidden."""
         c1 = Panel(width=200, height=100)
         c2 = Panel(width=200, height=100)
-        tg = TabGroup({"A": c1, "B": c2})
+        TabGroup({"A": c1, "B": c2})
         assert c1.visible is True
         assert c2.visible is False
 

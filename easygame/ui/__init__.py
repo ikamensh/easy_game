@@ -4,7 +4,13 @@ from easygame.ui.component import Component
 from easygame.ui.components import Button, Label, Panel
 from easygame.ui.drag_drop import DragManager
 from easygame.ui.hud import HUD
-from easygame.ui.layout import Anchor, Layout
+from easygame.ui.layout import (
+    Anchor,
+    Layout,
+    compute_anchor_position,
+    compute_content_size,
+    compute_flow_layout,
+)
 from easygame.ui.screens import (
     ChoiceScreen,
     ConfirmDialog,
@@ -16,12 +22,15 @@ from easygame.ui.widgets import (
     DataTable,
     Grid,
     ImageBox,
-    List,
+    ListWidget,
     ProgressBar,
     TabGroup,
     TextBox,
     Tooltip,
 )
+
+# Backward-compatible alias — avoids shadowing builtins.list in new code.
+List = ListWidget
 
 __all__ = [
     "Anchor",
@@ -29,6 +38,9 @@ __all__ = [
     "ChoiceScreen",
     "Component",
     "ConfirmDialog",
+    "compute_anchor_position",
+    "compute_content_size",
+    "compute_flow_layout",
     "DataTable",
     "DragManager",
     "Grid",
@@ -37,6 +49,7 @@ __all__ = [
     "Label",
     "Layout",
     "List",
+    "ListWidget",
     "MessageScreen",
     "Panel",
     "ProgressBar",

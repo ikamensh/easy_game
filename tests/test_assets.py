@@ -97,7 +97,7 @@ def test_prefers_2x_variant_when_scale_high(
 ) -> None:
     """With scale_factor >= 1.5, loads knight@2x.png instead of knight.png."""
     mgr = AssetManager(backend, base_path=asset_dir, scale_factor=2.0)
-    handle = mgr.image("sprites/knight")
+    mgr.image("sprites/knight")
 
     expected_2x = str(asset_dir / "images" / "sprites" / "knight@2x.png")
     assert expected_2x in backend._loaded_images
@@ -108,7 +108,7 @@ def test_falls_back_to_1x_when_no_2x(
 ) -> None:
     """With high scale_factor but no @2x file, falls back to base image."""
     mgr = AssetManager(backend, base_path=asset_dir, scale_factor=2.0)
-    handle = mgr.image("sprites/tree")
+    mgr.image("sprites/tree")
 
     expected_1x = str(asset_dir / "images" / "sprites" / "tree.png")
     assert expected_1x in backend._loaded_images
@@ -122,7 +122,7 @@ def test_loads_1x_when_scale_low(
 ) -> None:
     """With scale_factor < 1.5, always loads base file even if @2x exists."""
     mgr = AssetManager(backend, base_path=asset_dir, scale_factor=1.0)
-    handle = mgr.image("sprites/knight")
+    mgr.image("sprites/knight")
 
     expected_1x = str(asset_dir / "images" / "sprites" / "knight.png")
     assert expected_1x in backend._loaded_images
