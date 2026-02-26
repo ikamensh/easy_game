@@ -31,7 +31,6 @@ from easygame.backends.mock_backend import MockBackend
 from easygame.input import InputManager
 from easygame.save import SaveError, SaveManager
 from easygame.ui.components import Label, Panel
-from easygame.ui.layout import Layout
 from easygame.util.timer import TimerManager
 from easygame.util.tween import TweenManager
 
