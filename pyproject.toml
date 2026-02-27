@@ -17,13 +17,11 @@ dependencies = [
     "pyglet>=2.1.13",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=9.0.2"]
+
 [tool.setuptools.packages.find]
 include = ["easygame*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.2",
-]
