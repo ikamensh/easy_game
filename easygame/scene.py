@@ -42,6 +42,7 @@ class Scene:
 
     transparent: bool = False
     pause_below: bool = True
+    pop_on_cancel: bool = False
     show_hud: bool = True
     real_time: bool = True
 
@@ -205,6 +206,51 @@ class Scene:
         for emitter in list(owned):
             emitter.remove()
         owned.clear()
+
+    # ------------------------------------------------------------------
+    # Key binding shortcuts
+    # ------------------------------------------------------------------
+
+    def bind_key(self, key_or_action: str, callback: Callable[[], Any]) -> None:
+        """Register a callback for a key press.
+
+        *key_or_action* may be a raw key name (``"i"``, ``"space"``) or a
+        named action (``"cancel"``, ``"confirm"``).  Named actions are
+        checked first so rebinding works automatically.
+
+        Call from :meth:`on_enter` alongside your UI setup::
+
+            def on_enter(self):
+                self.bind_key("i",      lambda: self.game.push(InventoryScreen()))
+                self.bind_key("c",      lambda: self.game.push(CharScreen()))
+                self.bind_key("cancel", lambda: self.game.push(PauseMenu()))
+
+        Only one callback per key/action.  Calling ``bind_key`` with the
+        same string again replaces the previous callback.
+        """
+        try:
+            self._key_handlers[key_or_action] = callback
+        except AttributeError:
+            self._key_handlers: dict[str, Callable[[], Any]] = {
+                key_or_action: callback
+            }
+
+    def _dispatch_key_bindings(self, event: InputEvent) -> bool:
+        """Dispatch *event* to registered key callbacks.
+
+        Called by the game loop before :meth:`handle_input`.  Returns
+        ``True`` if a binding matched and consumed the event.
+        """
+        handlers: dict[str, Callable[[], Any]] | None = getattr(
+            self, "_key_handlers", None
+        )
+        if not handlers or event.type != "key_press":
+            return False
+        cb = handlers.get(event.action) or handlers.get(event.key)  # type: ignore[arg-type]
+        if cb is not None:
+            cb()
+            return True
+        return False
 
     def on_enter(self) -> None:
         """Called when this scene becomes active (top of stack)."""

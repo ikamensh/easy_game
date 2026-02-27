@@ -598,7 +598,20 @@ class Game:
                     # Camera key scroll gets third crack (before scene).
                     if camera is not None and camera.handle_input(translated_event):
                         continue
-                    top.handle_input(translated_event)
+                    # Key bindings registered via bind_key() get fourth crack.
+                    if top._dispatch_key_bindings(translated_event):
+                        continue
+                    # Scene handle_input gets last crack.
+                    consumed = top.handle_input(translated_event)
+                    # pop_on_cancel: auto-pop if scene declares it and cancel
+                    # was not already consumed by handle_input or a binding.
+                    if (
+                        not consumed
+                        and top.pop_on_cancel
+                        and translated_event.type == "key_press"
+                        and translated_event.action == "cancel"
+                    ):
+                        self.pop()
         finally:
             self._scene_stack.flush_pending_ops()
 

@@ -1,8 +1,8 @@
 {
-  "mode": "saga",
+  "team": "saga",
   "orchestrator": "api",
-  "orchestrator_model": "opus",
+  "orchestrator_model": "gemini-flash",
   "max_exchanges": 30,
-  "max_cycles": 15,
-  "budget_per_step": null
+  "max_cycles": 5,
+  "auto_commit": true
 }

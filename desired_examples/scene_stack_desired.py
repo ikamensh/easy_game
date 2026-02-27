@@ -17,10 +17,18 @@ class TitleScreen(Scene):
         self.ui.add(panel)
 
 
+class Item:
+    def __init__(self, name):
+        self.name = name
+    def use(self):
+        pass
+
+
 class GameWorld(Scene):
     transparent = False
 
     def on_enter(self):
+        self.inventory = [Item("Potion"), Item("Key")]
         self.player = Sprite("sprites/player", position=(400, 300))
         # HUD hint
         self.ui.add(Label("I=Inventory  ESC=Menu", anchor=Anchor.TOP_LEFT, margin=10))

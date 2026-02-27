@@ -946,3 +946,34 @@ Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
 **Fix verdicts confirmed real:** All 8 fix items verified. F2 (layout helpers missing from `__all__`), F3 (4 unused `result` vars in test_animation.py), F6 (Image.open context manager — minor), F7 (missing `-> None` on test functions), F8 (2 %-format strings in actions.py), F9 (Pillow CVE), F23-F25 (packaging gaps).
 
 **Minor gap (not blocking):** Prior unresolved item about `Game.after()` / `Scene.after()` docstrings (whether to document timer survival across scene transitions) was dropped without a verdict. This is a documentation-only item, not a correctness issue. The architecture doc above already documents the behavior: "scene-scoped timers auto-cancelled on exit; `game.after()` only for cross-scene timers."
+
+---
+
+## Stage 6 Decisions (Fix & Report — v0.1.0)
+
+### Versioning & Packaging
+- **v0.1.0** initial version with `pyproject.toml`. Dependencies pinned: `Pillow>=12.1.1` (CVE-2026-25990 fix), `pyglet>=2.1.13`.
+- `easygame.__version__ = "0.1.0"` exposed for runtime version checks.
+
+### Resource Safety (F6, F9 resolved)
+- **Context managers** mandatory for `Image.open()` in asset loading paths.
+- `color_swap.py` passes `formats=["PNG"]` to `Image.open()` — restricts input to PNG, mitigating CVE-2026-25990 even on unpatched Pillow. Defence-in-depth alongside the `Pillow>=12.1.1` pin.
+
+### Needs-Decision (deferred to owner)
+- **F21 — `List` widget shadows builtin:** Not renamed. Options: rename to `ListWidget`/`ItemList`, or keep `List` and document shadowing.
+- **F20 — Input 1:1 key mapping:** Not changed. `bind(action, key)` remains 1:1. Extend to many-to-many if parity with reference games is needed.
+- **F19 — Asset cache eviction:** No `clear_cache()` added. Five unbounded caches acceptable for bounded asset sets. Add eviction if procedural content causes memory pressure.
+- **F15 — UI Widget deduplication:** Deferred. ~120 lines duplicated across `List`/`DataTable` (`_clamp_scroll`, `_move_selection`, `_ensure_selected_visible`) — correct and well-tested, refactoring is a maintenance improvement.
+- **F27 — README Quick Start assumes display:** Not changed. Consider adding `backend="mock"` note for headless/CI use.
+
+---
+
+## Architect Review (Stage 5 Triage — Current Run)
+
+**Triage deliverable verified.** `triage-results.md` covers all 39 significant findings across 4 source files plus 6 prior-unresolved items. Format correct (verdict + reason per finding). 1465 tests passing.
+
+**Triage is triage-only — fixes NOT yet applied.** The orchestrator summary misleadingly says "Fixed..." but inspection confirms the triage stage correctly only categorized findings. Of 12 spot-checked fix-verdicts, only 3 were pre-existing fixes from earlier stages (S-F1, S-F2 type-ignore removals; C-F3 sprite position validation). The remaining 9 (MoveTo NaN, dt validation, Game singleton, WeakSet particles, UI cleanup, mock_backend leak, tick try/finally, etc.) are correctly deferred to Stage 6.
+
+**Verdict counts:** 24 fix, 13 skip, 2 needs-decision. All verdicts defensible against source code.
+
+**Note for Stage 6 (Fix & Report):** The draw phase in `tick()` (game.py:646-648) remains unprotected — if `draw()` raises, `end_frame()` and `_restore_sprites()` are skipped, corrupting backend state. This is the highest-priority fix.
