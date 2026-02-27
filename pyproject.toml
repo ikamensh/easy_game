@@ -17,6 +17,9 @@ dependencies = [
     "pyglet>=2.1.13",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [tool.setuptools.packages.find]
 include = ["easygame*"]
 
