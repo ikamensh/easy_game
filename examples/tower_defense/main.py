@@ -1,7 +1,7 @@
-"""Tower Defense -- a complete example game built with EasyGame.
+"""Tower Defense -- a complete example game built with Saga2D.
 
 This file demonstrates a fully playable tower defense game using 12+
-distinct EasyGame subsystems:
+distinct Saga2D subsystems:
 
     1.  **Scene stack**      -- TitleScene, GameScene, ChoiceScreen, MessageScreen
     2.  **Sprite**           -- tiles, towers, enemies, projectiles, range indicator
@@ -63,7 +63,7 @@ if not _asset_dir.exists() or not (_asset_dir / "images").exists():
     print()
 
 # ---------------------------------------------------------------------------
-# EasyGame imports
+# Saga2D imports
 # ---------------------------------------------------------------------------
 from saga2d import (  # noqa: E402
     Anchor,
@@ -326,7 +326,7 @@ class TitleScene(Scene):
             text_color=TITLE_COLOR,
         )
         subtitle_label = Label(
-            "An EasyGame Example",
+            "An Saga2D Example",
             font_size=18,
             text_color=SUBTITLE_COLOR,
         )
@@ -368,7 +368,7 @@ class TitleScene(Scene):
 class GameScene(Scene):
     """Gameplay scene: tower placement, enemy waves, combat, win/lose.
 
-    This scene exercises all major EasyGame subsystems:
+    This scene exercises all major Saga2D subsystems:
 
     - **Sprites** for tiles, towers, enemies, projectiles, range indicator
     - **Camera** with key-scrolling and world bounds

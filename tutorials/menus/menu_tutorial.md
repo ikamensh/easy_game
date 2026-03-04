@@ -1,6 +1,6 @@
-# EasyGame — Menus & Navigation
+# Saga2D — Menus & Navigation
 
-A complete guide to building multi-screen games with EasyGame: what the
+A complete guide to building multi-screen games with Saga2D: what the
 abstractions are, why they're designed the way they are, and how to use them.
 
 ---
@@ -13,7 +13,7 @@ pause screen.  Each state has its own UI, its own input rules, its own
 update logic.  When you leave a state you want it cleaned up.  When you come
 back you want it restored.
 
-EasyGame makes each state a **Scene**.  A Scene is a Python class.  You
+Saga2D makes each state a **Scene**.  A Scene is a Python class.  You
 subclass it, override the hooks you care about, and the framework handles
 the rest.
 
@@ -100,7 +100,7 @@ title screen stays underneath; Settings is an overlay; ESC pops it and the
 title screen reappears.
 
 These aren't framework quirks.  They're the two distinct navigation
-relationships that every menu system has.  EasyGame surfaces them as
+relationships that every menu system has.  Saga2D surfaces them as
 first-class operations rather than hiding them behind a single "go to screen"
 call.
 
@@ -294,7 +294,7 @@ events.  Decoupled but verbose.  Every new screen type needs to know which
 events to emit and subscribe to.  The navigation graph lives in the event
 names, not in the code.
 
-**3. Scene stack** — what EasyGame uses.  Navigation IS the call stack.
+**3. Scene stack** — what Saga2D uses.  Navigation IS the call stack.
 `push` is "open"; `pop` is "back"; `replace` is "transition".  The stack
 implicitly tracks "what was I doing before this overlay".  There's no
 registry, no event bus, no screen IDs.  The navigation graph is visible in

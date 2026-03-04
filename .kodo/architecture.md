@@ -1,4 +1,4 @@
-# EasyGame Architecture Reference
+# Saga2D Architecture Reference
 
 > Condensed from implementation journals (stages 6–13), updated through stage 6 fixes.
 > All API signatures verified against source. **1318 tests passing.**
@@ -481,8 +481,8 @@ preserving the original cleanup semantics.
   IDs. Simpler, no wasted timer slots.
 - **`every().then()` creates a new one-shot child per repetition.** Each child is
   appended to `_chain_ids` so cancellation catches them.
-- **`TimerHandle` lives in `easygame/util/timer.py`** (same module as `TimerManager`).
-  Re-exported from `easygame/__init__.py` for `from easygame import TimerHandle`.
+- **`TimerHandle` lives in `saga2d/util/timer.py`** (same module as `TimerManager`).
+  Re-exported from `saga2d/__init__.py` for `from saga2d import TimerHandle`.
 - **No `.cancel()` on TimerHandle itself.** Users call `game.cancel(handle)` or
   `scene.cancel_timer(handle)`. Keeps TimerHandle lightweight (no game back-ref needed
   in the public API — `_manager` is internal).
@@ -558,7 +558,7 @@ Layout computed lazily (dirty flag). `_ensure_layout()` called before draw/input
 ### Widgets
 
 ```python
-# Foundation (easygame/ui/components.py)
+# Foundation (saga2d/ui/components.py)
 class Label(Component):    __init__(self, text, *, font_size=None, text_color=None,
                                     font=None, style=None, **kw)
                            text: str  # settable
@@ -568,7 +568,7 @@ class Button(Component):   __init__(self, text, *, on_click=None, style=None, **
                            # on_draw resolves "disabled" state when enabled=False
 class Panel(Component):    __init__(self, *, layout=Layout.NONE, spacing=0, padding=0, **kw)
 
-# Extended (easygame/ui/widgets.py)
+# Extended (saga2d/ui/widgets.py)
 class ImageBox(Component):    # image_name (settable), width, height
 class ProgressBar(Component): # value (settable), max_value, fraction (read-only), bar_color, bg_color
 class TextBox(Component):     # text, typewriter_speed; is_typewriter_done, skip_typewriter()
@@ -669,7 +669,7 @@ game.run(StartScene())
 adds a generator module called from `generate_assets.py`. Assets go to both
 `assets/images/sprites/` (tests) and the local example/tutorial dir.
 
-**Import style:** Flat from `easygame` — never from subpackages:
+**Import style:** Flat from `saga2d` — never from subpackages:
 
 ```python
 from saga2d import Game, Scene, Sprite, Camera, Panel, Label, Button,
@@ -937,7 +937,7 @@ Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
 
 ## Architect Review (Stage 5 Triage Verification)
 
-**Triage coverage:** 28 findings (F1-F28) across 4 source categories verified. Static analysis (9), architecture (8), prior unresolved easygame items (5), consumer/packaging (6). Edge-case adversarial file had 0 findings (65 tests, all passing). Prior unresolved `kodo/` items correctly excluded (not part of easygame project).
+**Triage coverage:** 28 findings (F1-F28) across 4 source categories verified. Static analysis (9), architecture (8), prior unresolved saga2d items (5), consumer/packaging (6). Edge-case adversarial file had 0 findings (65 tests, all passing). Prior unresolved `kodo/` items correctly excluded (not part of saga2d project).
 
 **Skip verdicts confirmed correct:** All 15 skips verified against source code. Key validations:
 - F1 (`backend -> object`): docstring explicitly marks as non-public, intentional encapsulation
@@ -956,7 +956,7 @@ Findings from adversarial testing (`tests/test_edge_cases.py`, 48 tests;
 
 ### Versioning & Packaging
 - **v0.1.0** initial version with `pyproject.toml`. Dependencies pinned: `Pillow>=12.1.1` (CVE-2026-25990 fix), `pyglet>=2.1.13`.
-- `easygame.__version__ = "0.1.0"` exposed for runtime version checks.
+- `saga2d.__version__ = "0.1.0"` exposed for runtime version checks.
 
 ### Resource Safety (F6, F9 resolved)
 - **Context managers** mandatory for `Image.open()` in asset loading paths.

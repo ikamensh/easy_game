@@ -47,7 +47,7 @@ class TestInputEvent:
         assert e.dx == 0
         assert e.dy == 0
 
-    def test_importable_from_easygame(self) -> None:
+    def test_importable_from_saga2d(self) -> None:
         from saga2d import InputEvent as IE
         assert IE is InputEvent
 

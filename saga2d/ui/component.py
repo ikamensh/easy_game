@@ -372,7 +372,7 @@ class _UIRoot(Component):
     *   Propagate the ``_game`` reference to all descendants.
     *   Serve as the entry point for :meth:`handle_event` and
         :meth:`draw` during the game loop.
-    *   Own the :class:`~easygame.ui.drag_drop.DragManager` for
+    *   Own the :class:`~saga2d.ui.drag_drop.DragManager` for
         drag-and-drop coordination (Stage 12).
     """
 
@@ -391,7 +391,7 @@ class _UIRoot(Component):
 
     @property
     def drag_manager(self) -> DragManager:
-        """The :class:`~easygame.ui.drag_drop.DragManager`, created lazily.
+        """The :class:`~saga2d.ui.drag_drop.DragManager`, created lazily.
 
         Components access this to start drag sessions.  The DragManager
         intercepts events during an active drag and draws ghost overlays.

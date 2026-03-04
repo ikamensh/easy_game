@@ -1,7 +1,7 @@
 """
 A styled dialog box with a character portrait, text, and choice buttons.
 Think: Baldur's Gate dialogue, or Heroes 2 event popup.
-This is what we want it to look like with EasyGame.
+This is what we want it to look like with Saga2D.
 """
 from saga2d import Game, Scene
 from saga2d.ui import Panel, Label, ImageBox, TextBox, Button, Anchor, Layout, Style

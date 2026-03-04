@@ -2,7 +2,7 @@
 
 This document records concrete friction points discovered while building
 `ch1_title_screen.py`, `ch2_game_map.py`, and `ch3_tower_placement.py`
-against the EasyGame framework.  Each entry includes the awkward code,
+against the Saga2D framework.  Each entry includes the awkward code,
 why it hurts, and the fix that was applied.
 
 ---

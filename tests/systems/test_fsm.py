@@ -1,4 +1,4 @@
-"""Tests for StateMachine (easygame.util.fsm)."""
+"""Tests for StateMachine (saga2d.util.fsm)."""
 
 from __future__ import annotations
 

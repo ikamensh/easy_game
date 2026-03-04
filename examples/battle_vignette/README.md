@@ -1,6 +1,6 @@
 # Battle Vignette Demo
 
-A stress-test of the EasyGame framework's animation, tween, timer, and input systems.
+A stress-test of the Saga2D framework's animation, tween, timer, and input systems.
 
 ## Generate Assets
 

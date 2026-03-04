@@ -1,4 +1,4 @@
-"""Tower Defense — a complete example game built with EasyGame.
+"""Tower Defense — a complete example game built with Saga2D.
 
 Run from the project root::
 

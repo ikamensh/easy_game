@@ -12,7 +12,7 @@ assert Style is not None
 assert Theme is not None
 assert Component is not None
 
-# Verify easygame.ui re-exports match
+# Verify saga2d.ui re-exports match
 assert Panel is UIPanel
 assert Label is UILabel
 assert Button is UIButton

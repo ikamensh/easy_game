@@ -63,7 +63,7 @@ if not _asset_dir.exists() or not (_asset_dir / "images").exists():
     print()
 
 # ---------------------------------------------------------------------------
-# EasyGame imports
+# Saga2D imports
 # ---------------------------------------------------------------------------
 from saga2d import (  # noqa: E402
     Anchor,

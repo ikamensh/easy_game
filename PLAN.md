@@ -1,8 +1,8 @@
-# EasyGame — Implementation Plan
+# Saga2D — Implementation Plan
 
 ## How to use this document
 
-This is a step-by-step implementation plan for the EasyGame framework. Each stage
+This is a step-by-step implementation plan for the Saga2D framework. Each stage
 produces a working, testable increment. Do not skip stages — later ones depend on
 earlier ones.
 
@@ -17,8 +17,8 @@ earlier ones.
 
 **Principles:**
 - Each stage has a validation script. Write it, run it, confirm it works before moving on.
-- Keep the public API clean. Users import from `easygame` and `easygame.ui`, never from
-  `easygame.backends` or internal modules.
+- Keep the public API clean. Users import from `saga2d` and `saga2d.ui`, never from
+  `saga2d.backends` or internal modules.
 - Follow the file structure defined in DESIGN.md (section "File / Project Structure").
 - Do not add features beyond what the current stage requires.
 - When in doubt about API shape, check `desired_examples/` and `DESIGN.md`.
@@ -39,7 +39,7 @@ interface as pyglet but records everything in memory.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     backends/
         __init__.py
         base.py           # Backend protocol + event types
@@ -381,7 +381,7 @@ colored backgrounds. This proves the backend protocol, game loop, and scene life
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     __init__.py
     game.py              # Game class
     scene.py             # Scene, SceneStack
@@ -500,7 +500,7 @@ statements to verify. No crashes, no orphaned pyglet processes.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     assets.py
     rendering/
         __init__.py
@@ -597,7 +597,7 @@ on screen. `sprite.remove()` makes it disappear.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     rendering/
         animation.py
 ```
@@ -670,7 +670,7 @@ queued animation starts when current finishes.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     util/
         __init__.py
         timer.py
@@ -745,7 +745,7 @@ Starting a new move_to cancels the previous one (no conflict).
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     input.py
 ```
 
@@ -819,7 +819,7 @@ world coordinates.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     rendering/
         camera.py
 ```
@@ -895,7 +895,7 @@ black void beyond edges).
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     audio.py
 ```
 
@@ -986,7 +986,7 @@ Enough to build the menu from `desired_examples/menu_desired.py`.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     ui/
         __init__.py
         component.py
@@ -1051,7 +1051,7 @@ from saga2d.ui import Panel, Label, Button, Anchor, Layout, Style
 class MenuTest(Scene):
     def on_enter(self):
         panel = Panel(anchor=Anchor.CENTER, layout=Layout.VERTICAL, spacing=16)
-        panel.add(Label("EasyGame Menu Test", style=Style(font_size=48)))
+        panel.add(Label("Saga2D Menu Test", style=Style(font_size=48)))
         panel.add(Button("Button 1", on_click=lambda: print("Clicked 1")))
         panel.add(Button("Button 2", on_click=lambda: print("Clicked 2")))
         panel.add(Button("Quit", on_click=self.game.quit))
@@ -1120,7 +1120,7 @@ MoveTo, FadeOut, FadeIn, Remove, Repeat.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     actions.py
 ```
 
@@ -1194,7 +1194,7 @@ mid-sequence.
 
 **Files to create/modify:**
 ```
-easygame/
+saga2d/
     rendering/
         particles.py
         color_swap.py
@@ -1236,7 +1236,7 @@ and blue team colors side by side. Cursor: changes to crosshair when pressing C.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     ui/
         drag_drop.py
     util/
@@ -1274,7 +1274,7 @@ system, settings screen, HUD layer.
 
 **Files to create:**
 ```
-easygame/
+saga2d/
     save.py
     ui/
         screens.py

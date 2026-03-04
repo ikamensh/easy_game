@@ -1,6 +1,6 @@
 # Desired Examples
 
-Before/after comparisons: how each subsystem works today (pygame) vs how EasyGame
+Before/after comparisons: how each subsystem works today (pygame) vs how Saga2D
 should make it work. Each pair has `_current.py` (what you write now) and
 `_desired.py` (what we want).
 

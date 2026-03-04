@@ -921,7 +921,7 @@ class TestGameIntegration:
         """AudioManager uses the game's AssetManager."""
         assert game.audio._assets is game.assets
 
-    def test_game_audio_importable_from_easygame(self) -> None:
+    def test_game_audio_importable_from_saga2d(self) -> None:
         """AudioManager is importable from the top-level package."""
         from saga2d import AudioManager as AM
         assert AM is AudioManager

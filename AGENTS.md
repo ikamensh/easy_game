@@ -1,4 +1,4 @@
-# Agent Guidelines — EasyGame
+# Agent Guidelines — Saga2D
 
 Instructions for AI agents working on this codebase.
 
@@ -60,9 +60,9 @@ This requires the backend to assign increasing z-order groups per scene layer.
 
 ### Backend Protocol
 
-- `easygame/backends/base.py` — abstract protocol (what backends must implement)
-- `easygame/backends/mock_backend.py` — headless testing (records operations)
-- `easygame/backends/pyglet_backend.py` — GPU rendering (single file, ~700 lines)
+- `saga2d/backends/base.py` — abstract protocol (what backends must implement)
+- `saga2d/backends/mock_backend.py` — headless testing (records operations)
+- `saga2d/backends/pyglet_backend.py` — GPU rendering (single file, ~700 lines)
 
 The protocol uses `begin_frame/end_frame` for GPU batch compatibility.
 Per-frame calls (`draw_text`, `draw_rect`, `draw_image`) are cleared each
@@ -72,11 +72,11 @@ Per-frame calls (`draw_text`, `draw_rect`, `draw_image`) are cleared each
 
 | File | What it does |
 |------|--------------|
-| `easygame/game.py` | Game loop, scene stack tick/draw orchestration |
-| `easygame/scene.py` | Scene class + SceneStack (push/pop/replace/clear_and_push) |
-| `easygame/ui/component.py` | Component base, _UIRoot, tree draw/input dispatch |
-| `easygame/ui/components.py` | Panel, Label, Button — `on_draw` calls `draw_rect`/`draw_text` |
-| `easygame/rendering/layers.py` | RenderLayer enum (GROUND..OVERLAY), sprite z-ordering |
+| `saga2d/game.py` | Game loop, scene stack tick/draw orchestration |
+| `saga2d/scene.py` | Scene class + SceneStack (push/pop/replace/clear_and_push) |
+| `saga2d/ui/component.py` | Component base, _UIRoot, tree draw/input dispatch |
+| `saga2d/ui/components.py` | Panel, Label, Button — `on_draw` calls `draw_rect`/`draw_text` |
+| `saga2d/rendering/layers.py` | RenderLayer enum (GROUND..OVERLAY), sprite z-ordering |
 
 ### Testing Patterns
 

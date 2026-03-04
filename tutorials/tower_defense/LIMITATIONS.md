@@ -1,6 +1,6 @@
 # Tower Defense Tutorial — Known Limitations & Design Decisions
 
-Concise notes on trade-offs and intentional constraints in the EasyGame
+Concise notes on trade-offs and intentional constraints in the Saga2D
 framework as used by the tower defense chapters.
 
 ---

@@ -1,4 +1,4 @@
-# EasyGame — Project Instructions
+# Saga2D — Project Instructions
 
 ## Visual Verification is Mandatory
 
@@ -77,8 +77,8 @@ go through pyglet's `dispatch_event`.
 
 ## Project Structure
 
-- `easygame/` — framework source
-- `easygame/backends/` — backend implementations (base protocol, mock, pyglet)
+- `saga2d/` — framework source
+- `saga2d/backends/` — backend implementations (base protocol, mock, pyglet)
 - `tests/` — pytest suite
 - `tutorials/` — runnable tutorial demos with companion tests
 - `examples/` — example games

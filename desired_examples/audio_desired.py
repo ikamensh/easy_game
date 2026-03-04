@@ -1,6 +1,6 @@
 """
 Audio: background music with crossfade, sound effects with channels, sound pools.
-This is what we want it to look like with EasyGame.
+This is what we want it to look like with Saga2D.
 """
 from saga2d import Game
 

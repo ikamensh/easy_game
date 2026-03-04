@@ -1059,7 +1059,7 @@ class TestActionEdgeCasesUnique:
 # ------------------------------------------------------------------
 
 
-def test_actions_importable_from_easygame() -> None:
+def test_actions_importable_from_saga2d() -> None:
     from saga2d import (
         Delay,
         Sequence,

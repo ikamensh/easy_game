@@ -1,7 +1,7 @@
 """HUD layer — persistent UI that renders above base scenes but below overlays.
 
-The :class:`HUD` is owned lazily by :class:`~easygame.game.Game`.  It wraps a
-:class:`~easygame.ui.component._UIRoot` and provides ``add`` / ``remove`` /
+The :class:`HUD` is owned lazily by :class:`~saga2d.game.Game`.  It wraps a
+:class:`~saga2d.ui.component._UIRoot` and provides ``add`` / ``remove`` /
 ``clear`` methods for managing persistent UI elements (health bars, mini-maps,
 resource counters, etc.).
 
@@ -47,7 +47,7 @@ class HUD:
     """Persistent UI layer that renders above base scenes but below overlays.
 
     Parameters:
-        game: The :class:`~easygame.game.Game` instance that owns this HUD.
+        game: The :class:`~saga2d.game.Game` instance that owns this HUD.
     """
 
     def __init__(self, game: Game) -> None:

@@ -1,6 +1,6 @@
-# Building a Tower Defense Game with EasyGame
+# Building a Tower Defense Game with Saga2D
 
-A step-by-step tutorial that takes you from an empty file to a fully playable Tower Defense game. Along the way, you'll learn how EasyGame's scene stack, camera, sprites, UI widgets, timers, state machines, composable actions, particles, and audio system work together to let you focus on gameplay instead of engine plumbing.
+A step-by-step tutorial that takes you from an empty file to a fully playable Tower Defense game. Along the way, you'll learn how Saga2D's scene stack, camera, sprites, UI widgets, timers, state machines, composable actions, particles, and audio system work together to let you focus on gameplay instead of engine plumbing.
 
 **What you'll build:** A 960x540 tower defense game with a scrollable tile map, three tower types (Basic, Sniper, Splash), three enemy types (Soldier, Scout, Tank), five escalating waves, a build menu with gold economy, health bars, particle explosions, background music, sound effects, and win/lose screens with retry.
 
@@ -29,7 +29,7 @@ Assets are auto-generated the first time you run any chapter. The placeholder ar
 
 **File:** `ch1_title_screen.py` | **Subsystems:** Game, Scene, Panel, Label, Button, Theme, InputEvent
 
-Every EasyGame program starts the same way: create a `Game`, define a `Scene`, and call `game.run()`.
+Every Saga2D program starts the same way: create a `Game`, define a `Scene`, and call `game.run()`.
 
 ### The Minimal Setup
 
@@ -88,7 +88,7 @@ The UI system is declarative: you describe a tree of components (panels contain 
 
 ### Keyboard Input
 
-EasyGame translates raw key presses into semantic actions. You handle them in `handle_input`:
+Saga2D translates raw key presses into semantic actions. You handle them in `handle_input`:
 
 ```python
 def handle_input(self, event: InputEvent) -> bool:
@@ -103,7 +103,7 @@ def handle_input(self, event: InputEvent) -> bool:
 
 Return `True` to consume an event, `False` to let it propagate down the scene stack. The UI system handles mouse clicks on buttons automatically, so `handle_input` only needs to add keyboard shortcuts.
 
-> **Without EasyGame** -- In raw pyglet, there is no scene stack. You'd track `current_scene = "title"` as a string and branch everywhere:
+> **Without Saga2D** -- In raw pyglet, there is no scene stack. You'd track `current_scene = "title"` as a string and branch everywhere:
 >
 > ```python
 > # Raw pyglet: manual scene management
@@ -132,9 +132,9 @@ Return `True` to consume an event, `False` to let it propagate down the scene st
 >             cleanup_game()   # manual cleanup
 > ```
 >
-> Adding a pause menu, settings screen, or confirmation dialog means adding branches to every `on_draw` and `on_key_press` handler. EasyGame's scene stack handles layering, lifecycle hooks, and input dispatch automatically.
+> Adding a pause menu, settings screen, or confirmation dialog means adding branches to every `on_draw` and `on_key_press` handler. Saga2D's scene stack handles layering, lifecycle hooks, and input dispatch automatically.
 
-> **Without EasyGame** -- Buttons in raw pyglet are hand-coded rectangles with manual hit-testing:
+> **Without Saga2D** -- Buttons in raw pyglet are hand-coded rectangles with manual hit-testing:
 >
 > ```python
 > # Raw pyglet: manual button implementation
@@ -167,7 +167,7 @@ Return `True` to consume an event, `False` to let it propagate down the scene st
 >         draw_text(text, rx + rw // 2, ry + rh // 2)
 > ```
 >
-> No hover states, no disabled state, no theming, no auto-layout. Add a button? Recalculate all positions. EasyGame's `Button`, `Panel`, and `Layout` handle all of this declaratively.
+> No hover states, no disabled state, no theming, no auto-layout. Add a button? Recalculate all positions. Saga2D's `Button`, `Panel`, and `Layout` handle all of this declaratively.
 
 ---
 
@@ -231,7 +231,7 @@ def _on_play_clicked(self) -> None:
 
 `push()` leaves the TitleScene on the stack. When the player presses Escape in GameScene, we `pop()` back -- the title screen is revealed without rebuilding it. This stack-based navigation is how strategy games handle title -> gameplay -> pause -> settings hierarchies.
 
-> **Without EasyGame** -- Camera scrolling in raw pyglet means writing the offset math yourself, including bounds clamping and key-held tracking:
+> **Without Saga2D** -- Camera scrolling in raw pyglet means writing the offset math yourself, including bounds clamping and key-held tracking:
 >
 > ```python
 > # Raw pyglet: manual camera
@@ -266,7 +266,7 @@ def _on_play_clicked(self) -> None:
 >             tile.image.blit(screen_x, screen_y)
 > ```
 >
-> Every sprite's position must be manually offset. Forget the bounds clamping and you get black edges. Forget the culling and you're drawing 880 sprites even when only 300 are visible. EasyGame's `Camera` does offset, clamping, culling, and key-scroll in three lines.
+> Every sprite's position must be manually offset. Forget the bounds clamping and you get black edges. Forget the culling and you're drawing 880 sprites even when only 300 are visible. Saga2D's `Camera` does offset, clamping, culling, and key-scroll in three lines.
 
 ---
 
@@ -278,7 +278,7 @@ This chapter adds interactive tower placement: a build menu on the right, click-
 
 ### Coordinate Systems
 
-EasyGame input events carry both screen and world coordinates:
+Saga2D input events carry both screen and world coordinates:
 
 ```python
 def handle_input(self, event: InputEvent) -> bool:
@@ -439,7 +439,7 @@ def _kill_enemy(self, enemy: dict) -> None:
 
 `Sequence` executes actions one after another. `FadeOut(0.4)` fades opacity to 0 over 0.4 seconds. `Do(callback)` runs a function. `Remove()` destroys the sprite. This declarative approach replaces nested callback chains.
 
-> **Without EasyGame** -- Timer management in raw pyglet requires tracking IDs and manual cancellation:
+> **Without Saga2D** -- Timer management in raw pyglet requires tracking IDs and manual cancellation:
 >
 > ```python
 > # Raw pyglet: manual timer management
@@ -458,9 +458,9 @@ def _kill_enemy(self, enemy: dict) -> None:
 >         self.timer_ids.clear()
 > ```
 >
-> EasyGame's `self.after()` handles this automatically. No timer ID tracking, no `on_exit` cleanup.
+> Saga2D's `self.after()` handles this automatically. No timer ID tracking, no `on_exit` cleanup.
 
-> **Without EasyGame** -- Death animations require callback chains or coroutines:
+> **Without Saga2D** -- Death animations require callback chains or coroutines:
 >
 > ```python
 > # Raw pyglet: callback chain for death animation
@@ -477,7 +477,7 @@ def _kill_enemy(self, enemy: dict) -> None:
 >     # if enemy.fade_timer >= enemy.fade_duration: enemy.fade_callback()
 > ```
 >
-> EasyGame's composable actions (`Sequence`, `FadeOut`, `Do`, `Remove`) let you describe the sequence declaratively. The framework handles the per-frame interpolation.
+> Saga2D's composable actions (`Sequence`, `FadeOut`, `Do`, `Remove`) let you describe the sequence declaratively. The framework handles the per-frame interpolation.
 
 ---
 
@@ -593,7 +593,7 @@ def draw(self) -> None:
 
 `draw_world_rect()` takes **world-space** coordinates and automatically applies the camera transform. The health bar follows the enemy as the camera scrolls. No manual `camera.world_to_screen()` calls needed.
 
-> **Without EasyGame** -- Drawing world-space UI elements in raw pyglet requires manual camera transforms:
+> **Without Saga2D** -- Drawing world-space UI elements in raw pyglet requires manual camera transforms:
 >
 > ```python
 > # Raw pyglet: manual camera transform for health bars
@@ -612,7 +612,7 @@ def draw(self) -> None:
 >                             color=(40, 200, 40)).draw()
 > ```
 >
-> Every world-space overlay needs the same boilerplate. EasyGame's `draw_world_rect()` encapsulates the camera transform.
+> Every world-space overlay needs the same boilerplate. Saga2D's `draw_world_rect()` encapsulates the camera transform.
 
 ---
 
@@ -709,7 +709,7 @@ def update(self, dt: float) -> None:
 
 This speeds up tower cooldowns. Enemy movement speeds are already baked into `sprite.move_to()`, so they move at their natural speed -- the tower fire rate is what changes. This is a design choice that's easy to customize.
 
-> **Without EasyGame** -- Audio in raw pyglet requires manual volume management and error handling:
+> **Without Saga2D** -- Audio in raw pyglet requires manual volume management and error handling:
 >
 > ```python
 > # Raw pyglet: manual audio management
@@ -730,11 +730,11 @@ This speeds up tower cooldowns. Enemy movement speeds are already baked into `sp
 > # No sound pools -- playing the same sound 10x loads it 10x
 > ```
 >
-> EasyGame's `AudioManager` provides channels (sfx, music, ambient), volume control per channel, sound pools, crossfade, and `optional=True` for graceful degradation.
+> Saga2D's `AudioManager` provides channels (sfx, music, ambient), volume control per channel, sound pools, crossfade, and `optional=True` for graceful degradation.
 
 ---
 
-## EasyGame Subsystems Used
+## Saga2D Subsystems Used
 
 Here's every subsystem exercised across the six chapters:
 
@@ -777,7 +777,7 @@ The tutorial game is a solid foundation. Here are ideas for extending it:
 
 ### Explore Other Subsystems
 
-EasyGame has subsystems not used in this tutorial:
+Saga2D has subsystems not used in this tutorial:
 
 - **HUD** -- a persistent overlay that draws between the base scene and modal overlays
 - **DragManager** -- built-in drag-and-drop with snap targets
@@ -798,12 +798,12 @@ python examples/tower_defense/main.py
 
 For detailed API documentation on every class and method used in this tutorial:
 
-- `easygame.Game` -- window, main loop, scene stack management
-- `easygame.Scene` -- lifecycle hooks, `add_sprite()`, `after()`, `every()`, `draw_rect()`, `draw_world_rect()`
-- `easygame.Sprite` -- position, opacity, `move_to()`, `do()`, `remove()`
-- `easygame.Camera` -- viewport, scrolling, `world_to_screen()`, `enable_key_scroll()`
-- `easygame.StateMachine` -- states, transitions, `trigger()`
-- `easygame.ParticleEmitter` -- `burst()`, lifetime, speed, fade
-- `easygame.AudioManager` -- `play_sound()`, `play_music()`, `stop_music()`, channels
-- `easygame.ui` -- `Panel`, `Label`, `Button`, `Layout`, `Anchor`, `Style`, `Theme`
-- `easygame.actions` -- `Sequence`, `Parallel`, `Delay`, `Do`, `FadeIn`, `FadeOut`, `MoveTo`, `PlayAnim`, `Remove`, `Repeat`
+- `saga2d.Game` -- window, main loop, scene stack management
+- `saga2d.Scene` -- lifecycle hooks, `add_sprite()`, `after()`, `every()`, `draw_rect()`, `draw_world_rect()`
+- `saga2d.Sprite` -- position, opacity, `move_to()`, `do()`, `remove()`
+- `saga2d.Camera` -- viewport, scrolling, `world_to_screen()`, `enable_key_scroll()`
+- `saga2d.StateMachine` -- states, transitions, `trigger()`
+- `saga2d.ParticleEmitter` -- `burst()`, lifetime, speed, fade
+- `saga2d.AudioManager` -- `play_sound()`, `play_music()`, `stop_music()`, channels
+- `saga2d.ui` -- `Panel`, `Label`, `Button`, `Layout`, `Anchor`, `Style`, `Theme`
+- `saga2d.actions` -- `Sequence`, `Parallel`, `Delay`, `Do`, `FadeIn`, `FadeOut`, `MoveTo`, `PlayAnim`, `Remove`, `Repeat`

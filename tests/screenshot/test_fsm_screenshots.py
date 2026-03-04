@@ -1,4 +1,4 @@
-"""Screenshot regression tests for StateMachine (easygame.util.fsm).
+"""Screenshot regression tests for StateMachine (saga2d.util.fsm).
 
 Run from the project root::
 

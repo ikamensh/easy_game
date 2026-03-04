@@ -30,7 +30,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Ensure the project root is on sys.path so ``import easygame`` works
+# Ensure the project root is on sys.path so ``import saga2d`` works
 # when invoked as ``python examples/battle_vignette/battle_demo.py``.
 _project_root = Path(__file__).resolve().parents[2]
 if str(_project_root) not in sys.path:

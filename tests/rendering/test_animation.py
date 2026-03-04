@@ -53,7 +53,7 @@ class TestAnimationDef:
         r = repr(anim)
         assert "sprites/walk" in r
 
-    def test_importable_from_easygame(self) -> None:
+    def test_importable_from_saga2d(self) -> None:
         from saga2d import AnimationDef as AD
         assert AD is AnimationDef
 

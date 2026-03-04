@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Path setup — ensures ``import easygame`` works regardless of cwd.
+# Path setup — ensures ``import saga2d`` works regardless of cwd.
 # ---------------------------------------------------------------------------
 _project_root = Path(__file__).resolve().parents[2]
 if str(_project_root) not in sys.path:

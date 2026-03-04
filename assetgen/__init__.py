@@ -1,5 +1,5 @@
 """
-assetgen - Procedural asset generation toolkit for EasyGame.
+assetgen - Procedural asset generation toolkit for Saga2D.
 
 Provides Pillow-based drawing primitives and 3D wireframe math
 used by sprite generators to create placeholder and final art assets.

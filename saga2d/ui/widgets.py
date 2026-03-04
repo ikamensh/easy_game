@@ -15,7 +15,7 @@
 *   :class:`DataTable` — rows of data with column headers, alternating
     row colours, and click-to-select.
 
-All inherit from :class:`~easygame.ui.component.Component` and support
+All inherit from :class:`~saga2d.ui.component.Component` and support
 theming via the Theme system.
 """
 

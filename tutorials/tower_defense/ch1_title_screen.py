@@ -1,7 +1,7 @@
 """Chapter 1 — Title Screen
 ===========================
 
-Your first EasyGame program!  This chapter creates a window with a
+Your first Saga2D program!  This chapter creates a window with a
 title screen scene.  You'll learn:
 
 *   How to create a :class:`Game` and run it.
@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Path setup — ensures ``import easygame`` works regardless of where you
+# Path setup — ensures ``import saga2d`` works regardless of where you
 # invoke this script from.  We climb two directories up from this file to
 # reach the project root, then add that to sys.path.
 # ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ if not _asset_dir.exists():
     print()
 
 # ---------------------------------------------------------------------------
-# EasyGame imports — everything comes from the top-level ``easygame`` package.
+# Saga2D imports — everything comes from the top-level ``saga2d`` package.
 # ---------------------------------------------------------------------------
 from saga2d import (  # noqa: E402
     Anchor,        # Where a UI component sits within its parent
@@ -71,7 +71,7 @@ from saga2d import (  # noqa: E402
 # ======================================================================
 
 # Logical resolution — the coordinate space your game thinks in.
-# EasyGame scales this to the actual window size automatically.
+# Saga2D scales this to the actual window size automatically.
 # 960×540 is a clean 16:9 ratio that works well for a small-window TD game.
 SCREEN_W, SCREEN_H = 960, 540
 
@@ -88,7 +88,7 @@ SUBTITLE_COLOR = (180, 180, 190, 255)  # Muted grey — for the subtitle
 class TitleScene(Scene):
     """The title screen — shown when the game starts.
 
-    EasyGame's Scene class has lifecycle hooks you can override:
+    Saga2D's Scene class has lifecycle hooks you can override:
 
     *   ``on_enter()``  — called when this scene becomes the active scene.
                           Set up sprites, UI, and state here.
@@ -113,7 +113,7 @@ class TitleScene(Scene):
         # -----------------------------------------------------------------
         # 1. Build the UI tree.
         #
-        #    EasyGame's UI is a tree of Components.  Every Scene has a
+        #    Saga2D's UI is a tree of Components.  Every Scene has a
         #    ``self.ui`` root that covers the full logical screen.  You add
         #    Panels, Labels, and Buttons as children.
         #
@@ -213,7 +213,7 @@ class TitleScene(Scene):
     def handle_input(self, event: InputEvent) -> bool:
         """Handle keyboard shortcuts.
 
-        EasyGame translates raw key presses into semantic *actions*:
+        Saga2D translates raw key presses into semantic *actions*:
         *   ``"confirm"`` — Enter key (start the game)
         *   ``"cancel"``  — Escape key (quit)
 
@@ -241,7 +241,7 @@ class TitleScene(Scene):
 def main() -> None:
     """Create the Game and run the title screen.
 
-    This is the minimal EasyGame setup:
+    This is the minimal Saga2D setup:
 
     1. Create a :class:`Game` with a title, resolution, and asset path.
     2. (Optional) Customise the :class:`Theme` for your game's look.

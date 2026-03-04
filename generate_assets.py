@@ -1,4 +1,4 @@
-"""Unified asset generator for EasyGame.
+"""Unified asset generator for Saga2D.
 
 Single entry point that generates all sprite PNGs for both tests and examples.
 

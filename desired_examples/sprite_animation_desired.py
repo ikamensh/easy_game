@@ -1,6 +1,6 @@
 """
 Animated unit: walks to a target, plays attack animation, then idles.
-This is what we want it to look like with EasyGame.
+This is what we want it to look like with Saga2D.
 """
 from saga2d import Game, Scene, Sprite, AnimationDef
 
@@ -49,7 +49,7 @@ class BattleScene(Scene):
 #
 # For complex multi-step sequences, use composable Actions instead of callbacks:
 #
-#   from easygame.actions import Sequence, Parallel, PlayAnim, MoveTo, Delay, Do, Remove
+#   from saga2d.actions import Sequence, Parallel, PlayAnim, MoveTo, Delay, Do, Remove
 #
 #   self.knight.do(Sequence(
 #       Parallel(PlayAnim(walk), MoveTo((500, 400), speed=200)),

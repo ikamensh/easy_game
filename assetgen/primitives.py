@@ -11,7 +11,7 @@ Two API layers:
 **High-level** — *return* a new ``PIL.Image.Image`` (RGBA, transparent bg):
     ``solid_rect``, ``labeled_rect``, ``triangle``, ``circle``, ``ring``.
 
-Coordinates use top-left origin, matching Pillow and EasyGame conventions.
+Coordinates use top-left origin, matching Pillow and Saga2D conventions.
 """
 
 from __future__ import annotations

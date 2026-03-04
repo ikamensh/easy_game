@@ -1,6 +1,6 @@
 """
 Scrolling world: camera follows player, edge scrolling, 50 units with y-sorting.
-This is what we want it to look like with EasyGame.
+This is what we want it to look like with Saga2D.
 """
 from saga2d import Game, Scene, Sprite, Camera, RenderLayer
 import random
