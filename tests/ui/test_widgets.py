@@ -572,8 +572,8 @@ class TestList:
         root._ensure_layout()
         root.draw()
 
-        # 1 background rect + 0 selection rects
-        assert len(backend.rects) == 1
+        # 1 background rect + 1 alternating row rect (Beta is index 1, odd row)
+        assert len(backend.rects) == 2
         # 2 text items
         assert len(backend.texts) == 2
         texts = [t["text"] for t in backend.texts]
@@ -590,8 +590,9 @@ class TestList:
         root._ensure_layout()
         root.draw()
 
-        # 1 background + 1 highlight
-        assert len(backend.rects) == 2
+        # 1 background + 1 selection highlight (Alpha) + 1 alternating row (Beta)
+        assert len(backend.rects) == 3
+        # Selection highlight for Alpha (index 0) is rect[1]
         assert backend.rects[1]["color"] == game.theme.selected_color
 
     def test_on_select_callback_on_keyboard(self) -> None:
@@ -1411,10 +1412,10 @@ class TestDataTable:
     def test_theme_integration(self) -> None:
         """Theme has all datatable properties."""
         theme = Theme()
-        assert theme.datatable_header_bg_color == (55, 55, 75, 255)
-        assert theme.datatable_header_text_color == (240, 240, 240, 255)
-        assert theme.datatable_row_bg_color == (35, 35, 45, 200)
-        assert theme.datatable_alt_row_bg_color == (42, 42, 55, 200)
+        assert theme.datatable_header_bg_color == (42, 50, 72, 255)
+        assert theme.datatable_header_text_color == (240, 242, 250, 255)
+        assert theme.datatable_row_bg_color == (32, 38, 54, 180)
+        assert theme.datatable_alt_row_bg_color == (38, 44, 60, 180)
 
     def test_resolve_datatable_style(self) -> None:
         """resolve_datatable_style returns correct defaults."""

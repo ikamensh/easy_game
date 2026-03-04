@@ -745,8 +745,8 @@ class TestThemeStyle:
     def test_progressbar_theme_defaults(self) -> None:
         """Theme has progressbar_color and progressbar_bg_color."""
         theme = Theme()
-        assert theme.progressbar_color == (60, 180, 60, 255)
-        assert theme.progressbar_bg_color == (40, 40, 40, 200)
+        assert theme.progressbar_color == (80, 150, 220, 255)
+        assert theme.progressbar_bg_color == (28, 32, 42, 220)
 
     def test_custom_theme_propagates(self, game: Game) -> None:
         """Custom theme set on Game is used by components."""

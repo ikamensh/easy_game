@@ -619,7 +619,17 @@ class List(Component):
         for i in range(self._scroll_offset, end):
             row_y = self._computed_y + (i - self._scroll_offset) * self._item_height
 
-            # Highlight selected row.
+            # Alternating row background (subtle).
+            if i % 2 == 1:
+                self._game._backend.draw_rect(
+                    self._computed_x,
+                    row_y,
+                    self._computed_w,
+                    self._item_height,
+                    theme.list_alt_row_bg_color,
+                )
+
+            # Highlight selected row (drawn on top of alternating bg).
             if i == self._selected_index:
                 self._game._backend.draw_rect(
                     self._computed_x,
@@ -891,7 +901,7 @@ class Grid(Component):
         )
 
         # Draw each cell slot (empty cells get a subtle background).
-        cell_bg: Color = (50, 50, 60, 180)
+        cell_bg: Color = (40, 48, 68, 180)
         for row in range(self._rows):
             for col in range(self._columns):
                 cx = self._computed_x + padding + col * (self._cell_w + self._spacing)
