@@ -292,6 +292,15 @@ class Backend(Protocol):
 
     # -- Rect and text rendering ---------------------------------------------
 
+    def set_ui_layer(self, layer: int) -> None:
+        """Set the current UI draw layer for subsequent draw_rect/draw_text calls.
+
+        Higher layers render on top of lower layers.  The game loop calls this
+        before each scene's draw phase so overlay panels correctly occlude
+        content from scenes below.  Layer 0 is the default.
+        """
+        ...
+
     def draw_rect(
         self,
         x: int,

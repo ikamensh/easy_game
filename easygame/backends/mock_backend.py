@@ -271,6 +271,10 @@ class MockBackend:
     # Backend protocol — rect and text rendering
     # ==================================================================
 
+    def set_ui_layer(self, layer: int) -> None:
+        """No-op in mock — layer ordering doesn't affect recorded output."""
+        pass
+
     def draw_rect(
         self,
         x: int,

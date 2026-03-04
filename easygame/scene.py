@@ -646,7 +646,10 @@ class SceneStack:
         while start > 0 and self._stack[start].transparent:
             start -= 1
 
+        backend = self._game._backend
+
         # --- Step 1: draw the base scene (the opaque one at ``start``).
+        backend.set_ui_layer(0)
         base = self._stack[start]
         base.draw()
         if base._ui is not None:
@@ -654,6 +657,7 @@ class SceneStack:
             base._ui.draw()
 
         # --- Step 2: draw the HUD between base and overlays.
+        backend.set_ui_layer(1)
         hud = self._game._hud
         if hud is not None:
             top = self._stack[-1]
@@ -662,6 +666,7 @@ class SceneStack:
 
         # --- Step 3: draw overlay scenes above the base.
         for i in range(start + 1, len(self._stack)):
+            backend.set_ui_layer(2 + (i - start - 1))
             scene = self._stack[i]
             scene.draw()
             if scene._ui is not None:

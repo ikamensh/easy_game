@@ -106,10 +106,13 @@ class PygletBackend:
         self._rect_shapes: list[Any] = []
         self._image_sprites: list[pyglet.sprite.Sprite] = []
 
-        # Persistent group for UI overlays (draw_rect / draw_text).
-        # order=100 ensures UI renders above all sprite layers (max is
-        # RenderLayer.UI_WORLD = 4).  Created once and reused.
-        self._ui_overlay_group: pyglet.graphics.Group | None = None
+        # UI layer groups — per-layer ordering so overlay panels correctly
+        # occlude content from scenes below.  Each layer gets two groups:
+        # one for rects (backgrounds) and one for text, so backgrounds
+        # always render before text within the same layer.
+        # Cache: layer_int -> (rect_group, text_group)
+        self._ui_layer_groups: dict[int, tuple[pyglet.graphics.Group, pyglet.graphics.Group]] = {}
+        self._current_ui_layer: int = 0
 
     # ==================================================================
     # Coordinate conversion
@@ -198,8 +201,9 @@ class PygletBackend:
         # Persistent batch — NOT recreated per frame.
         self.batch = pyglet.graphics.Batch()
 
-        # UI overlay group — order=100 renders above all sprite layers.
-        self._ui_overlay_group = pyglet.graphics.Group(order=100)
+        # Reset UI layer state for the new window.
+        self._ui_layer_groups.clear()
+        self._current_ui_layer = 0
 
         # Compute viewport from actual physical window size.
         self._compute_viewport(
@@ -213,16 +217,18 @@ class PygletBackend:
         backend = self  # capture for closures
 
         @self.window.event
-        def on_key_press(symbol: int, modifiers: int) -> None:
+        def on_key_press(symbol: int, modifiers: int) -> bool:
             backend._event_queue.append(
                 KeyEvent(type="key_press", key=_symbol_to_name(symbol)),
             )
+            return True  # EVENT_HANDLED — prevent pyglet's default ESC-closes-window
 
         @self.window.event
-        def on_key_release(symbol: int, modifiers: int) -> None:
+        def on_key_release(symbol: int, modifiers: int) -> bool:
             backend._event_queue.append(
                 KeyEvent(type="key_release", key=_symbol_to_name(symbol)),
             )
+            return True
 
         @self.window.event
         def on_mouse_press(
@@ -230,7 +236,7 @@ class PygletBackend:
             y: int,
             button: int,
             modifiers: int,
-        ) -> None:
+        ) -> bool:
             lx, ly = backend._to_logical(x, y)
             backend._event_queue.append(
                 MouseEvent(
@@ -240,6 +246,7 @@ class PygletBackend:
                     button=_button_to_name(button),
                 ),
             )
+            return True
 
         @self.window.event
         def on_mouse_release(
@@ -247,7 +254,7 @@ class PygletBackend:
             y: int,
             button: int,
             modifiers: int,
-        ) -> None:
+        ) -> bool:
             lx, ly = backend._to_logical(x, y)
             backend._event_queue.append(
                 MouseEvent(
@@ -257,13 +264,15 @@ class PygletBackend:
                     button=_button_to_name(button),
                 ),
             )
+            return True
 
         @self.window.event
-        def on_mouse_motion(x: int, y: int, dx: int, dy: int) -> None:
+        def on_mouse_motion(x: int, y: int, dx: int, dy: int) -> bool:
             lx, ly = backend._to_logical(x, y)
             backend._event_queue.append(
                 MouseEvent(type="move", x=lx, y=ly),
             )
+            return True
 
         @self.window.event
         def on_mouse_drag(
@@ -273,7 +282,7 @@ class PygletBackend:
             dy: int,
             buttons: int,
             modifiers: int,
-        ) -> None:
+        ) -> bool:
             lx, ly = backend._to_logical(x, y)
             ldx = int(dx / backend.scale_factor)
             ldy = int(dy / backend.scale_factor)
@@ -288,6 +297,7 @@ class PygletBackend:
                     dy=ldy,
                 ),
             )
+            return True
 
         @self.window.event
         def on_mouse_scroll(
@@ -295,7 +305,7 @@ class PygletBackend:
             y: int,
             scroll_x: float,
             scroll_y: float,
-        ) -> None:
+        ) -> bool:
             lx, ly = backend._to_logical(x, y)
             backend._event_queue.append(
                 MouseEvent(
@@ -306,6 +316,7 @@ class PygletBackend:
                     dy=int(scroll_y),
                 ),
             )
+            return True
 
         @self.window.event
         def on_close() -> bool:
@@ -427,6 +438,8 @@ class PygletBackend:
             batch=self.batch,
             group=group,
         )
+        # Scale sprite images to match logical→physical mapping.
+        pyg_sprite.scale = self.scale_factor
         sid = self._next_sprite_id
         self._next_sprite_id += 1
         self._sprites[sid] = pyg_sprite
@@ -446,7 +459,9 @@ class PygletBackend:
         phys_x, phys_y = self._to_physical(x, y)
         pyg = self._sprites[sprite_id]
         pyg.x = phys_x
-        pyg.y = phys_y
+        # _to_physical gives the top-left in pyglet coords (y-up), but
+        # pyglet sprites anchor at bottom-left.  Subtract height to fix.
+        pyg.y = phys_y - pyg.height
         pyg.opacity = opacity
         pyg.visible = visible
         r, g, b = tint
@@ -506,6 +521,32 @@ class PygletBackend:
         )
 
     # ==================================================================
+    # Backend protocol — UI layer ordering
+    # ==================================================================
+
+    def _get_ui_groups(self, layer: int) -> tuple[Any, Any]:
+        """Return (rect_group, text_group) for the given UI layer.
+
+        Each layer maps to two pyglet Groups with consecutive orders:
+        - rect_group at ``100 + layer * 2``     (backgrounds first)
+        - text_group at ``100 + layer * 2 + 1`` (text on top)
+
+        Groups are cached and reused across frames.
+        """
+        if layer not in self._ui_layer_groups:
+            import pyglet
+
+            base_order = 100 + layer * 2
+            rect_group = pyglet.graphics.Group(order=base_order)
+            text_group = pyglet.graphics.Group(order=base_order + 1)
+            self._ui_layer_groups[layer] = (rect_group, text_group)
+        return self._ui_layer_groups[layer]
+
+    def set_ui_layer(self, layer: int) -> None:
+        """Set the current UI draw layer for subsequent draw_rect/draw_text."""
+        self._current_ui_layer = layer
+
+    # ==================================================================
     # Backend protocol — rect and text rendering
     # ==================================================================
 
@@ -530,6 +571,7 @@ class PygletBackend:
         phys_h = int(phys_tl_y - phys_br_y)  # y-flipped
         r, g, b, a = color
         alpha = int(a * opacity)
+        rect_group, _ = self._get_ui_groups(self._current_ui_layer)
         rect = pyglet.shapes.Rectangle(
             int(phys_tl_x),
             int(phys_br_y),
@@ -537,7 +579,7 @@ class PygletBackend:
             phys_h,
             color=(r, g, b, alpha),
             batch=self.batch,
-            group=self._ui_overlay_group,
+            group=rect_group,
         )
         self._rect_shapes.append(rect)
 
@@ -568,6 +610,7 @@ class PygletBackend:
         font_name = font if font is not None else "sans-serif"
         physical_size = int(font_size * self.scale_factor)
         phys_x, phys_y = self._to_physical(x, y)
+        _, text_group = self._get_ui_groups(self._current_ui_layer)
         label = pyglet.text.Label(
             text,
             font_name=font_name,
@@ -578,7 +621,7 @@ class PygletBackend:
             anchor_x=anchor_x,  # type: ignore[arg-type]  # protocol uses str, pyglet expects Literal
             anchor_y=anchor_y,  # type: ignore[arg-type]  # protocol uses str, pyglet expects Literal
             batch=self.batch,
-            group=self._ui_overlay_group,
+            group=text_group,
         )
         self._text_labels.append(label)
 
@@ -607,12 +650,13 @@ class PygletBackend:
         phys_w = phys_br_x - phys_tl_x
         phys_h = phys_tl_y - phys_br_y  # y-flipped
 
+        rect_group, _ = self._get_ui_groups(self._current_ui_layer)
         sprite = pyglet.sprite.Sprite(
             image_handle,
             x=int(phys_tl_x),
             y=int(phys_br_y),
             batch=self.batch,
-            group=self._ui_overlay_group,
+            group=rect_group,
         )
         # Scale to requested size.
         sprite.scale_x = phys_w / image_handle.width
