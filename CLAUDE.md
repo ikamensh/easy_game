@@ -1,42 +1,36 @@
 # Saga2D — Project Instructions
 
-## Visual Verification is Mandatory
+## Visual Verification is MANDATORY — Not Optional
 
 Mock backend tests prove logic (scene stack, navigation, text content) but say
-**nothing** about actual rendering.  Every UI or rendering change MUST be
-visually verified with the pyglet backend before it's considered done.
+**nothing** about actual rendering. Screenshot tests that auto-generate golden
+images prove consistency, not quality. **You must actually render and LOOK at
+the output to verify visual quality.**
 
-### How to take screenshots
+### The render-and-look protocol
 
-Pyglet double-buffers.  You must capture **after** `batch.draw()` but
-**before** `window.flip()`, otherwise you get stale buffer contents.
+**Every** visual change requires this loop:
 
-The pattern that works — monkey-patch `end_frame`:
+1. Render to PNG using the screenshot harness
+2. **Open the PNG and examine it with your vision** — read the file
+3. Ask: "Would a game developer ship this?" If no → iterate
+4. Only then update golden images or mark the task done
 
 ```python
-import pyglet
-from saga2d import Game
+from tests.screenshot.harness import render_scene
 
-game = Game("Test", resolution=(800, 600), backend="pyglet")
-_orig = game.backend.end_frame
-_capture = None
+def setup(game):
+    # set up your scene, sprites, UI...
+    pass
 
-
-def _patched():
-    if game.backend.window is None or game.backend.batch is None:
-        return
-    game.backend.batch.draw()
-    if _capture:
-        pyglet.image.get_buffer_manager().get_color_buffer().save(_capture)
-    game.backend.window.flip()
-
-
-game.backend.end_frame = _patched
+image = render_scene(setup, tick_count=2, resolution=(800, 600))
+image.save("/tmp/verify.png")
+# NOW READ /tmp/verify.png AND LOOK AT IT
 ```
 
-Set `_capture = "/tmp/shot.png"` on the frame you want to capture, then set
-it back to `None`.  Drive the game with `pyglet.clock.schedule_interval` +
-`game.tick(dt=0.016)`.
+**Do NOT trust "tests pass" as visual verification.** A screenshot test passing
+means pixels match the golden — it says nothing about whether the golden itself
+looks good. The golden images are auto-generated on first run.
 
 ### What to verify visually
 
@@ -45,6 +39,23 @@ it back to `None`.  Drive the game with `pyglet.clock.schedule_interval` +
 - Background colors apply per-scene
 - Buttons have visible backgrounds with readable text
 - Transparent overlays show the scene below
+- **Text is readable** — right size, good contrast, no overlap with other elements
+- **Tiles are seamless** — no visible gaps or seams between adjacent tiles
+- **Colors are attractive** — not just "renders something"
+- **Spacing feels right** — padding, margins, element separation
+
+### Capturing screenshots (low-level alternative)
+
+Pyglet double-buffers.  You must capture **after** `batch.draw()` but
+**before** `window.flip()`, otherwise you get stale buffer contents.
+
+```python
+import pyglet
+from saga2d import Game
+
+game = Game("Test", resolution=(800, 600), backend="pyglet")
+# Use game.backend.capture_frame() after tick — see harness.py
+```
 
 ### Bug we found this way (2026-02)
 

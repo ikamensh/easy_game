@@ -1,8 +1,8 @@
 {
-  "team": "saga",
+  "team": "full",
   "orchestrator": "api",
   "orchestrator_model": "gemini-flash",
-  "max_exchanges": 30,
-  "max_cycles": 5,
+  "max_exchanges": 40,
+  "max_cycles": 8,
   "auto_commit": true
 }
