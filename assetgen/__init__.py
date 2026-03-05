@@ -5,18 +5,39 @@ Provides Pillow-based drawing primitives and 3D wireframe math
 used by sprite generators to create placeholder and final art assets.
 
 Submodules:
-    primitives  - Filled/outlined polygons, gradients, hatching, ellipses.
+    primitives  - Filled/outlined polygons, gradients, hatching, ellipses,
+                  effects, colour utilities, and supersampling.
     wireframe   - 3D shapes, rotation, projection, edge rendering.
 """
 
 from assetgen.primitives import (
+    # colour utilities
+    lighten,
+    darken,
+    adjust_alpha,
+    # supersampling
+    supersample,
+    supersample_draw,
+    # polygons
     filled_polygon,
     outlined_polygon,
+    # gradients
     vertical_gradient,
     horizontal_gradient,
+    linear_gradient,
+    radial_gradient,
+    # hatching
     crosshatch,
+    # ellipses
     filled_ellipse,
     outlined_ellipse,
+    # effects
+    apply_blur,
+    apply_drop_shadow,
+    apply_glow,
+    # texture
+    apply_noise,
+    # high-level shape factories
     solid_rect,
     labeled_rect,
     triangle,
@@ -37,14 +58,33 @@ from assetgen.wireframe import (
 )
 
 __all__ = [
-    # primitives
+    # colour utilities
+    "lighten",
+    "darken",
+    "adjust_alpha",
+    # supersampling
+    "supersample",
+    "supersample_draw",
+    # primitives — polygons
     "filled_polygon",
     "outlined_polygon",
+    # primitives — gradients
     "vertical_gradient",
     "horizontal_gradient",
+    "linear_gradient",
+    "radial_gradient",
+    # primitives — hatching
     "crosshatch",
+    # primitives — ellipses
     "filled_ellipse",
     "outlined_ellipse",
+    # effects
+    "apply_blur",
+    "apply_drop_shadow",
+    "apply_glow",
+    # texture
+    "apply_noise",
+    # high-level shape factories
     "solid_rect",
     "labeled_rect",
     "triangle",

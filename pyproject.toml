@@ -13,6 +13,7 @@ authors = [
     { name = "Ilya Kamenshchikov", email = "ilya.kamenshchikov@gmail.com" },
 ]
 dependencies = [
+    "numpy>=2.0.0",
     "Pillow>=12.1.1",
     "pyglet>=2.1.13",
 ]
