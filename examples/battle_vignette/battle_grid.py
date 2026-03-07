@@ -10,7 +10,7 @@ drawn as semi-transparent rectangles via :meth:`Scene.draw_rect`.
 
 Usage::
 
-    grid = SquareGrid(scene, origin_x=128, origin_y=64)
+    grid = SquareGrid(scene, origin_x=128, origin_y=128)
     grid.create_terrain_sprites()
 
     # Query helpers
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 # Constants
 # ---------------------------------------------------------------------------
 
-TILE_SIZE: int = 64
+TILE_SIZE: int = 128
 """Side length of one grid cell in pixels."""
 
 COLS: int = 8
