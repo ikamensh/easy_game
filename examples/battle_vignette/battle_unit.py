@@ -32,6 +32,7 @@ from saga2d import (
     FadeOut,
     MoveTo,
     Parallel,
+    ParticleEmitter,
     PlayAnim,
     Remove,
     RenderLayer,
@@ -397,8 +398,27 @@ class BaseUnit:
         actual = max(1, amount - self.def_)
         self.hp = max(0, self.hp - actual)
 
-        # Spawn floating damage number
+        # Sound effect, damage flash, and screen shake
+        self.scene.game.audio.play_sound("sounds/sword_hit", optional=True)
+        if hasattr(self.scene, "_flash_opacity"):
+            self.scene._flash_opacity = 1.0
+            tween(self.scene, "_flash_opacity", 1.0, 0.0, 0.2, ease=Ease.EASE_OUT)
+        if self.scene.camera is not None:
+            self.scene.camera.shake(6.0, 0.15, 2.0)
+
+        # Hit sparkle particles
         sx, sy = self.sprite.position
+        self.scene.add_emitter(ParticleEmitter(
+            ["particles/spark", "particles/blood"],
+            position=(sx, sy - SPRITE_SIZE // 2),
+            count=8,
+            speed=(40, 150),
+            direction=(0, 360),
+            lifetime=(0.15, 0.4),
+            fade_out=True,
+        )).burst()
+
+        # Spawn floating damage number
         floater = FloatingNumber(
             text=f"-{actual}",
             x=sx,
@@ -424,6 +444,19 @@ class BaseUnit:
         """Play death animation, fade out, and remove the sprite."""
         self.alive = False
         self.deselect()
+        self.scene.game.audio.play_sound("sounds/death", optional=True)
+
+        # Death dust burst
+        sx, sy = self.sprite.position
+        self.scene.add_emitter(ParticleEmitter(
+            "particles/dust",
+            position=(sx, sy - SPRITE_SIZE // 2),
+            count=15,
+            speed=(20, 100),
+            direction=(180, 360),  # upward fan
+            lifetime=(0.3, 0.8),
+            fade_out=True,
+        )).burst()
 
         # Clear occupancy
         if self.grid.in_bounds(self.col, self.row):
